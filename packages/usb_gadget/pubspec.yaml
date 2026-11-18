@@ -3,7 +3,8 @@ description: >-
   USB gadgets for Linux in Dart: kernel functions and FunctionFS functions
   written in Dart, bridging the Rust usb-gadget crate.
 version: 2.0.0
-homepage: https://github.com/GuillaumeMCK/usb-gadget
+repository: https://github.com/GuillaumeMCK/usb-gadget/tree/main/packages/usb_gadget
+issue_tracker: https://github.com/GuillaumeMCK/usb-gadget/issues
 
 platforms:
   linux:

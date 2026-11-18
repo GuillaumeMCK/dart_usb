@@ -3,8 +3,8 @@ description: >-
   Cross-platform low-level access to USB devices for Dart and Flutter,
   bridging the Rust nusb crate with flutter_rust_bridge and build hooks.
 version: 0.1.0
-repository: https://github.com/GuillaumeMCK/usb
-issue_tracker: https://github.com/GuillaumeMCK/usb/issues
+repository: https://github.com/GuillaumeMCK/usb-gadget/tree/main/packages/usb_host
+issue_tracker: https://github.com/GuillaumeMCK/usb-gadget/issues
 
 environment:
   sdk: ^3.14.0
