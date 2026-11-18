@@ -22,7 +22,7 @@ maintained configfs support. The API is new.
   `PrinterFunction`, `AudioFunction`, `VideoFunction`, `LoopbackFunction`,
   `SourceSinkFunction`, `OtherFunction`) instead of subclasses.
 - **BREAKING**: `FunctionFs` and `HidFunctionFs` are replaced by
-  `CustomFunction`: endpoints are `EndpointSender`/`EndpointReceiver`, and
+  `CustomFunction`: endpoints are `InEndpoint` (write) and `OutEndpoint` (read), and
   events (including control requests to answer) arrive on `events`.
 - **BREAKING**: USB chapter 9 and HID types moved to the shared
   [`usb_models`](../usb_models) package (re-exported), with Effective Dart

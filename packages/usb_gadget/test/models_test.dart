@@ -28,7 +28,7 @@ void main() {
   });
 
   test('endpoints take their direction from their io', () {
-    final tx = EndpointSender(queueLength: 4);
+    final tx = InEndpoint(queueLength: 4);
     final endpoint = CustomEndpoint.interrupt(
       tx,
       interval: 4,
@@ -43,6 +43,6 @@ void main() {
     expect(SerialFunction().state, FunctionState.unregistered);
     expect(CustomFunction([]).path, isNull);
     expect(() => SerialFunction().devicePath, throwsStateError);
-    expect(() => EndpointReceiver().receive(), throwsStateError);
+    expect(() => OutEndpoint().read(), throwsStateError);
   });
 }

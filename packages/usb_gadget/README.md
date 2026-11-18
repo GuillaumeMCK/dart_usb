@@ -68,11 +68,11 @@ Future<void> main() async {
 
 A `CustomFunction` is implemented in Dart through FunctionFS
 (`CONFIG_USB_CONFIGFS_F_FS`). Endpoints are declared with an
-`EndpointSender` (IN, to the host) or `EndpointReceiver` (OUT, from the
+`InEndpoint` (IN, to the host) or `OutEndpoint` (OUT, from the
 host); control requests arrive as events to answer.
 
 ```dart
-final tx = EndpointSender(), rx = EndpointReceiver();
+final tx = InEndpoint(), rx = OutEndpoint();
 final echo = CustomFunction([
   CustomInterface(
     const Class.vendorSpecific(0, 0),
@@ -90,7 +90,7 @@ await for (final event in echo.events) {
   switch (event) {
     case EnableEvent():
       // Keeps 16 receive buffers queued; sends each chunk back.
-      rx.stream().asyncMap(tx.sendAndFlush).listen(null);
+      rx.stream().asyncMap(tx.writeAndFlush).listen(null);
     case ControlInRequest(:final setup) when setup.type == .vendor:
       await event.send([1, 2, 3]);
     case final ControlRequest request:

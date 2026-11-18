@@ -186,16 +186,16 @@ void main() async {
   });
 
   group('custom function', skip: skip, () {
-    late EndpointSender tx;
-    late EndpointReceiver rx;
+    late InEndpoint tx;
+    late OutEndpoint rx;
     late CustomFunction function;
     late host.Interface interface;
     late StreamSubscription<CustomEvent> events;
     var stored = <int>[];
 
     setUp(() async {
-      tx = EndpointSender();
-      rx = EndpointReceiver();
+      tx = InEndpoint();
+      rx = OutEndpoint();
       function = CustomFunction([
         CustomInterface(
           const Class.vendorSpecific(0, 0),
@@ -208,7 +208,7 @@ void main() async {
       events = function.events.listen((event) async {
         switch (event) {
           case EnableEvent():
-            echo ??= rx.stream().asyncMap(tx.sendAndFlush).listen(null);
+            echo ??= rx.stream().asyncMap(tx.writeAndFlush).listen(null);
             if (!enabled.isCompleted) enabled.complete();
           case final ControlOutRequest r when r.setup.request == 1:
             stored = await r.receive();

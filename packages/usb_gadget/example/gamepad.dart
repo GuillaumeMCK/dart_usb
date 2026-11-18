@@ -90,7 +90,7 @@ final class Gamepad {
   }
 
   late final CustomFunction function;
-  final _reports = EndpointSender();
+  final _reports = InEndpoint();
   final report = GamepadReport();
   var _idle = 0;
   var _protocol = 1;
@@ -147,7 +147,7 @@ final class Gamepad {
         ..rightY = (128 + 90 * sin(t * 3 * pi)).round()
         ..hat = (t / 0.75).floor() % 9;
       try {
-        await _reports.send(
+        await _reports.write(
           report.toBytes(),
           timeout: const Duration(milliseconds: 100),
         );

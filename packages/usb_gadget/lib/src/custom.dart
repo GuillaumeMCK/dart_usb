@@ -24,10 +24,10 @@ List<LocalizedString> _localized(String name, Map<LanguageId, String> names) =>
 
 /// A function implemented in Dart through FunctionFS: its interfaces and
 /// endpoints are declared here, its control requests arrive as [events],
-/// and its data moves through [EndpointSender]s and [EndpointReceiver]s.
+/// and its data moves through [InEndpoint]s and [OutEndpoint]s.
 ///
 /// ```dart
-/// final tx = EndpointSender(), rx = EndpointReceiver();
+/// final tx = InEndpoint(), rx = OutEndpoint();
 /// final function = CustomFunction([
 ///   CustomInterface(
 ///     const Class.vendorSpecific(0, 0),
@@ -87,10 +87,10 @@ final class CustomFunction extends GadgetFunction {
       for (final interface in interfaces) {
         for (final endpoint in interface.endpoints) {
           switch (endpoint.io) {
-            case final EndpointSender sender:
-              sender._native = native.takeSender(index);
-            case final EndpointReceiver receiver:
-              receiver._native = native.takeReceiver(index);
+            case final InEndpoint endpoint:
+              endpoint._native = native.takeSender(index);
+            case final OutEndpoint endpoint:
+              endpoint._native = native.takeReceiver(index);
           }
           index++;
         }
@@ -339,7 +339,7 @@ final class CustomDescriptor {
 }
 
 /// An endpoint of a [CustomInterface]. Its direction comes from [io]: an
-/// [EndpointSender] makes an IN endpoint, an [EndpointReceiver] an OUT one.
+/// [InEndpoint] makes an IN endpoint, an [OutEndpoint] an OUT one.
 final class CustomEndpoint {
   const CustomEndpoint(
     this.io, {
@@ -428,7 +428,7 @@ final class CustomEndpoint {
   final int? audioSynchAddress;
 
   rust.EndpointSpec _spec() => rust.EndpointSpec(
-    deviceToHost: io is EndpointSender,
+    deviceToHost: io is InEndpoint,
     queueLength: io.queueLength,
     transferType: transferType.value,
     syncType: (syncType.value >> 2) & 0x03,
@@ -469,12 +469,12 @@ sealed class EndpointIo {
   void cancel();
 }
 
-/// Sends data to the host on an IN endpoint.
+/// An IN endpoint: the gadget writes data for the host to read.
 ///
-/// For throughput, send chunks much larger than the max packet size, such
-/// as 16 KiB; [send] queues them and returns, [flush] waits for them.
-final class EndpointSender extends EndpointIo {
-  EndpointSender({super.queueLength});
+/// For throughput, write chunks much larger than the max packet size, such
+/// as 16 KiB; [write] queues them and returns, [flush] waits for them.
+final class InEndpoint extends EndpointIo {
+  InEndpoint({super.queueLength});
 
   rust.EndpointSender? _native;
 
@@ -485,23 +485,23 @@ final class EndpointSender extends EndpointIo {
       ));
 
   /// Queues [data], waiting up to [timeout] for queue space.
-  Future<void> send(List<int> data, {Duration? timeout}) =>
+  Future<void> write(List<int> data, {Duration? timeout}) =>
       _io.send(data, timeout);
 
   /// Waits up to [timeout] for queued data to be sent. On timeout, queued
   /// transfers are cancelled.
   Future<void> flush({Duration? timeout}) => _io.flush(timeout);
 
-  /// Sends [data] and waits until it is sent.
-  Future<void> sendAndFlush(List<int> data, {Duration? timeout}) async {
-    await send(data, timeout: timeout);
+  /// Writes [data] and waits until it is sent.
+  Future<void> writeAndFlush(List<int> data, {Duration? timeout}) async {
+    await write(data, timeout: timeout);
     await flush(timeout: timeout);
   }
 
-  /// Sends every chunk of [stream], then flushes.
+  /// Writes every chunk of [stream], then flushes.
   Future<void> addStream(Stream<List<int>> stream) async {
     await for (final chunk in stream) {
-      await send(chunk);
+      await write(chunk);
     }
     await flush();
   }
@@ -522,9 +522,9 @@ final class EndpointSender extends EndpointIo {
   void cancel() => _native?.cancel();
 }
 
-/// Receives data from the host on an OUT endpoint.
-final class EndpointReceiver extends EndpointIo {
-  EndpointReceiver({super.queueLength});
+/// An OUT endpoint: the gadget reads data the host wrote.
+final class OutEndpoint extends EndpointIo {
+  OutEndpoint({super.queueLength});
 
   rust.EndpointReceiver? _native;
 
@@ -534,10 +534,10 @@ final class EndpointReceiver extends EndpointIo {
         "the endpoint's function is not part of a registered gadget",
       ));
 
-  /// Receives one transfer of up to [maxLength] bytes (a multiple of the
+  /// Reads one transfer of up to [maxLength] bytes (a multiple of the
   /// max packet size), waiting up to [timeout]. A short packet ends the
   /// transfer early.
-  Future<Uint8List> receive({int maxLength = 16384, Duration? timeout}) =>
+  Future<Uint8List> read({int maxLength = 16384, Duration? timeout}) =>
       _io.receive(maxLength, false, timeout);
 
   /// Every transfer received, keeping [queueLength] buffers of [chunkSize]

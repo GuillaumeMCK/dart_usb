@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:usb_gadget/usb_gadget.dart';
 
 Future<void> main() async {
-  final tx = EndpointSender(), rx = EndpointReceiver();
+  final tx = InEndpoint(), rx = OutEndpoint();
   final function = CustomFunction([
     CustomInterface(
       const Class.vendorSpecific(0, 0),
@@ -32,7 +32,7 @@ Future<void> main() async {
       case EnableEvent():
         echo ??= rx
             .stream()
-            .asyncMap(tx.sendAndFlush)
+            .asyncMap(tx.writeAndFlush)
             .listen(null, onError: (Object e) => stderr.writeln(e));
       case DisableEvent():
         await echo?.cancel();
