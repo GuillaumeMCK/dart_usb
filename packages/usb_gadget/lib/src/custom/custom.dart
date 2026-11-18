@@ -1,3 +1,6 @@
+/// @docImport 'package:usb_gadget/src/rust/api/error.dart';
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -5,15 +8,14 @@ import 'dart:typed_data';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show RustOpaqueInterface;
 import 'package:meta/meta.dart';
+import 'package:usb_gadget/src/function.dart';
+import 'package:usb_gadget/src/poll_stream.dart';
+import 'package:usb_gadget/src/rust/api.dart' show LocalizedString;
+import 'package:usb_gadget/src/rust/api/custom.dart' as rust;
+import 'package:usb_gadget/src/rust/api/endpoint.dart' as rust;
+import 'package:usb_gadget/src/rust/api/function.dart' show FunctionState;
+import 'package:usb_gadget/src/rust/api/gadget.dart' show FunctionHandle;
 import 'package:usb_models/usb_models.dart';
-
-import '../function.dart';
-import '../poll_stream.dart';
-import '../rust/api.dart' show LocalizedString;
-import '../rust/api/custom.dart' as rust;
-import '../rust/api/endpoint.dart' as rust;
-import '../rust/api/function.dart' show FunctionState;
-import '../rust/api/gadget.dart' show FunctionHandle;
 
 part 'endpoint.dart';
 part 'events.dart';
@@ -38,21 +40,24 @@ part 'interface.dart';
 /// starts afresh, and streams from the previous registration end.
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_FS`.
-final class CustomFunction extends GadgetFunction {
-  CustomFunction(
-    this.interfaces, {
-    this.allControlRecipients = false,
-    this.config0Setup = false,
-    this.ffsDirectory,
-    this.ffsRootMode,
-    this.ffsFileMode,
-    this.ffsUid,
-    this.ffsGid,
-    this.ffsNoDisconnect = false,
-    this.ffsNoInit = false,
-    this.ffsNoMount = false,
-  });
+final class CustomFunction(
+  this.interfaces, {
+  this.allControlRecipients = false,
+  this.config0Setup = false,
+  this.ffsDirectory,
+  this.ffsRootMode,
+  this.ffsFileMode,
+  this.ffsUid,
+  this.ffsGid,
+  this.ffsNoDisconnect = false,
+  this.ffsNoInit = false,
+  this.ffsNoMount = false,
+}) extends GadgetFunction {
+  /// A custom function with [interfaces]; the FunctionFS settings are
+  /// rarely needed.
+  this;
 
+  /// The interfaces, in order.
   final List<CustomInterface> interfaces;
 
   /// Receives control requests for any recipient, not only this function's
@@ -64,12 +69,26 @@ final class CustomFunction extends GadgetFunction {
 
   /// Mounts FunctionFS here instead of a temporary directory.
   final String? ffsDirectory;
+
+  /// Mode of the FunctionFS root directory.
   final int? ffsRootMode;
+
+  /// Mode of the FunctionFS files.
   final int? ffsFileMode;
+
+  /// Owner of the FunctionFS files.
   final int? ffsUid;
+
+  /// Group of the FunctionFS files.
   final int? ffsGid;
+
+  /// Keeps the gadget connected while FunctionFS is closed.
   final bool ffsNoDisconnect;
+
+  /// Doesn't initialize FunctionFS (for an instance set up elsewhere).
   final bool ffsNoInit;
+
+  /// Doesn't mount FunctionFS (for an instance mounted elsewhere).
   final bool ffsNoMount;
 
   rust.CustomFunction? _native;

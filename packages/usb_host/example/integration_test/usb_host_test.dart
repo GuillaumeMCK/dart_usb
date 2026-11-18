@@ -1,7 +1,7 @@
 // Read-only checks against whatever USB hardware is attached.
-import 'package:usb_host/usb_host.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:usb_host/usb_host.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +15,10 @@ void main() {
   test('lists devices and reads descriptors', () async {
     for (final info in await usb.listDevices()) {
       final device = await info.open();
-      expect(device.deviceDescriptor.id, Id(vendor: info.vendorId, product: info.productId));
+      expect(
+        device.deviceDescriptor.id,
+        Id(vendor: info.vendorId, product: info.productId),
+      );
       expect(device.configurations, isNotEmpty);
     }
   });
@@ -32,7 +35,13 @@ void main() {
     final device = await devices.first.open();
     await expectLater(
       device.getStringDescriptor(index: 0),
-      throwsA(isA<UsbException>().having((e) => e.kind, 'kind', UsbErrorKind.transferInvalidArgument)),
+      throwsA(
+        isA<UsbException>().having(
+          (e) => e.kind,
+          'kind',
+          UsbErrorKind.transferInvalidArgument,
+        ),
+      ),
     );
   });
 }

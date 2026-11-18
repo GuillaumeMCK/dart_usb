@@ -1,9 +1,11 @@
+/// @docImport 'package:usb_host/src/rust/api/error.dart';
+library;
+
 import 'dart:typed_data';
 
+import 'package:usb_host/src/rust/api/device.dart';
+import 'package:usb_host/src/rust/api/enumeration.dart';
 import 'package:usb_models/usb_models.dart';
-
-import 'rust/api/device.dart';
-import 'rust/api/enumeration.dart';
 
 /// Reads the speed codes the Rust side reports (see `speed_code`).
 Speed? _speed(int? code) => switch (code) {
@@ -34,7 +36,8 @@ extension InterfaceInfoModels on InterfaceInfo {
 /// `usb_models` types.
 extension DeviceModels on Device {
   /// The device descriptor. Cached; doesn't perform IO.
-  DeviceDescriptor get deviceDescriptor => DeviceDescriptor.parse(rawDeviceDescriptor);
+  DeviceDescriptor get deviceDescriptor =>
+      DeviceDescriptor.parse(rawDeviceDescriptor);
 
   /// Every configuration of the device. Cached; doesn't perform IO.
   List<ConfigurationDescriptor> get configurations => [
@@ -43,7 +46,8 @@ extension DeviceModels on Device {
 
   /// The active configuration. Throws a `notConfigured` [UsbException] if
   /// the device is unconfigured.
-  ConfigurationDescriptor activeConfiguration() => ConfigurationDescriptor.parse(rawActiveConfiguration());
+  ConfigurationDescriptor activeConfiguration() =>
+      ConfigurationDescriptor.parse(rawActiveConfiguration());
 
   /// Connection speed, if known.
   Speed? get speed => _speed(rawSpeed);
@@ -53,28 +57,30 @@ extension DeviceModels on Device {
   ///
   /// Not supported on Windows: claim an interface and use
   /// [InterfaceModels.controlIn].
-  Future<Uint8List> controlIn(ControlIn request, {Duration? timeout}) => controlInRaw(
-    requestType: request.setup.requestType,
-    request: request.request,
-    value: request.value,
-    index: request.index,
-    length: request.length,
-    timeout: timeout,
-  );
+  Future<Uint8List> controlIn(ControlIn request, {Duration? timeout}) =>
+      controlInRaw(
+        requestType: request.setup.requestType,
+        request: request.request,
+        value: request.value,
+        index: request.index,
+        length: request.length,
+        timeout: timeout,
+      );
 
   /// Sends [request] on the default control endpoint; [timeout] defaults to
   /// 1 second.
   ///
   /// Not supported on Windows: claim an interface and use
   /// [InterfaceModels.controlOut].
-  Future<void> controlOut(ControlOut request, {Duration? timeout}) => controlOutRaw(
-    requestType: request.setup.requestType,
-    request: request.request,
-    value: request.value,
-    index: request.index,
-    data: request.data,
-    timeout: timeout,
-  );
+  Future<void> controlOut(ControlOut request, {Duration? timeout}) =>
+      controlOutRaw(
+        requestType: request.setup.requestType,
+        request: request.request,
+        value: request.value,
+        index: request.index,
+        data: request.data,
+        timeout: timeout,
+      );
 }
 
 /// Descriptors and control transfers of a claimed [Interface], using the
@@ -95,23 +101,25 @@ extension InterfaceModels on Interface {
   ///
   /// On Windows, for [Recipient.interface], the low byte of `index` must be
   /// this interface's number.
-  Future<Uint8List> controlIn(ControlIn request, {Duration? timeout}) => controlInRaw(
-    requestType: request.setup.requestType,
-    request: request.request,
-    value: request.value,
-    index: request.index,
-    length: request.length,
-    timeout: timeout,
-  );
+  Future<Uint8List> controlIn(ControlIn request, {Duration? timeout}) =>
+      controlInRaw(
+        requestType: request.setup.requestType,
+        request: request.request,
+        value: request.value,
+        index: request.index,
+        length: request.length,
+        timeout: timeout,
+      );
 
   /// Sends [request]; [timeout] defaults to 1 second. Same Windows
   /// restriction as [controlIn].
-  Future<void> controlOut(ControlOut request, {Duration? timeout}) => controlOutRaw(
-    requestType: request.setup.requestType,
-    request: request.request,
-    value: request.value,
-    index: request.index,
-    data: request.data,
-    timeout: timeout,
-  );
+  Future<void> controlOut(ControlOut request, {Duration? timeout}) =>
+      controlOutRaw(
+        requestType: request.setup.requestType,
+        request: request.request,
+        value: request.value,
+        index: request.index,
+        data: request.data,
+        timeout: timeout,
+      );
 }

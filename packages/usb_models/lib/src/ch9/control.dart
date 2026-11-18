@@ -1,20 +1,21 @@
 import 'dart:typed_data';
 
-import '../../usb_models.dart';
+import 'package:usb_models/usb_models.dart';
 
 /// The 8-byte SETUP packet that starts every control transfer.
 ///
 /// A host sends it ([ControlIn], [ControlOut]); a gadget receives it.
-final class SetupPacket {
-  const SetupPacket({
-    required this.direction,
-    required this.type,
-    required this.recipient,
-    required this.request,
-    this.value = 0,
-    this.index = 0,
-    this.length = 0,
-  });
+final class const SetupPacket({
+  required this.direction,
+  required this.type,
+  required this.recipient,
+  required this.request,
+  this.value = 0,
+  this.index = 0,
+  this.length = 0,
+}) {
+  /// A SETUP packet; [value], [index] and [length] default to 0.
+  this;
 
   /// Parses the first 8 bytes of [bytes].
   factory SetupPacket.parse(List<int> bytes) {
@@ -67,6 +68,7 @@ final class SetupPacket {
     return null;
   }
 
+  /// The 8 bytes on the wire.
   Uint8List toBytes() =>
       (ByteData(8)
             ..setUint8(0, requestType)
@@ -98,25 +100,36 @@ final class SetupPacket {
 }
 
 /// A control transfer reading [length] bytes from the device.
-final class ControlIn {
-  const ControlIn({
-    required this.type,
-    required this.recipient,
-    required this.request,
-    this.value = 0,
-    this.index = 0,
-    required this.length,
-  });
+final class const ControlIn({
+  required this.type,
+  required this.recipient,
+  required this.request,
+  this.value = 0,
+  this.index = 0,
+  required this.length,
+}) {
+  /// A read of [length] bytes; [value] and [index] default to 0.
+  this;
 
+  /// Standard, class or vendor request.
   final RequestType type;
+
+  /// Device, interface, endpoint or other.
   final Recipient recipient;
+
+  /// `bRequest`.
   final int request;
+
+  /// `wValue`.
   final int value;
+
+  /// `wIndex`.
   final int index;
 
   /// Number of bytes to read.
   final int length;
 
+  /// The SETUP packet this request sends.
   SetupPacket get setup => SetupPacket(
     direction: .in_,
     type: type,
@@ -132,25 +145,36 @@ final class ControlIn {
 }
 
 /// A control transfer sending [data] to the device.
-final class ControlOut {
-  const ControlOut({
-    required this.type,
-    required this.recipient,
-    required this.request,
-    this.value = 0,
-    this.index = 0,
-    this.data = const [],
-  });
+final class const ControlOut({
+  required this.type,
+  required this.recipient,
+  required this.request,
+  this.value = 0,
+  this.index = 0,
+  this.data = const [],
+}) {
+  /// A write of [data]; [value] and [index] default to 0.
+  this;
 
+  /// Standard, class or vendor request.
   final RequestType type;
+
+  /// Device, interface, endpoint or other.
   final Recipient recipient;
+
+  /// `bRequest`.
   final int request;
+
+  /// `wValue`.
   final int value;
+
+  /// `wIndex`.
   final int index;
 
   /// Bytes sent in the data stage.
   final List<int> data;
 
+  /// The SETUP packet this request sends.
   SetupPacket get setup => SetupPacket(
     direction: .out,
     type: type,

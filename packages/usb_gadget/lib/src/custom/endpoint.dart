@@ -3,8 +3,10 @@ part of 'custom.dart';
 /// The data side of a [CustomEndpoint]. I/O works once the function's
 /// gadget is registered and the host has enabled the function; if the
 /// function is registered again, the endpoint follows it.
-sealed class EndpointIo<N extends RustOpaqueInterface> {
-  EndpointIo({this.queueLength = 16}) {
+sealed class EndpointIo<N extends RustOpaqueInterface>({
+  this.queueLength = 16,
+}) {
+  this {
     if (queueLength < 1) {
       throw ArgumentError.value(
         queueLength,
@@ -59,8 +61,10 @@ sealed class EndpointIo<N extends RustOpaqueInterface> {
 ///
 /// For throughput, write chunks much larger than the max packet size, such
 /// as 16 KiB; [write] queues them and returns, [flush] waits for them.
-final class InEndpoint extends EndpointIo<rust.EndpointSender> {
-  InEndpoint({super.queueLength});
+final class InEndpoint({super.queueLength})
+    extends EndpointIo<rust.EndpointSender> {
+  /// An IN endpoint keeping up to [queueLength] transfers queued.
+  this;
 
   /// Queues [data], waiting up to [timeout] for queue space.
   Future<void> write(List<int> data, {Duration? timeout}) =>
@@ -104,15 +108,17 @@ final class InEndpoint extends EndpointIo<rust.EndpointSender> {
 /// An OUT endpoint: the gadget reads data the host wrote.
 ///
 /// Use either [read] or one [stream] at a time.
-final class OutEndpoint extends EndpointIo<rust.EndpointReceiver> {
-  OutEndpoint({super.queueLength});
+final class OutEndpoint({super.queueLength})
+    extends EndpointIo<rust.EndpointReceiver> {
+  /// An OUT endpoint keeping up to [queueLength] transfers queued.
+  this;
 
   var _streaming = false;
 
   /// Reads one transfer of up to [maxLength] bytes (a multiple of the max
   /// packet size), waiting up to [timeout]. A short packet ends the
   /// transfer early.
-  Future<Uint8List> read({int maxLength = 16384, Duration? timeout}) {
+  Future<Uint8List> read({int maxLength = 16_384, Duration? timeout}) {
     if (_streaming) throw StateError('OutEndpoint is being streamed');
     return _io.receive(maxLength, false, timeout);
   }
@@ -124,7 +130,7 @@ final class OutEndpoint extends EndpointIo<rust.EndpointReceiver> {
   /// (or hasn't enabled it yet). Pausing the subscription stops reading:
   /// once the queued buffers fill, the host is held off (NAKed) until it
   /// resumes. Cancelling cancels the queued buffers.
-  Stream<Uint8List> stream({int chunkSize = 16384}) =>
+  Stream<Uint8List> stream({int chunkSize = 16_384}) =>
       pollStream<rust.EndpointReceiver, Uint8List>(
         native: _live,
         start: (_) {

@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import '../../usb_models.dart';
+import 'package:usb_models/usb_models.dart';
 
 /// USB specification version.
 ///
 /// Used to specify the USB version in the `bcdUSB` field of the device
 /// descriptor. The BCD (Binary Coded Decimal) format encodes the version
 /// as four hexadecimal digits (e.g., `0x0200` for USB 2.0).
-enum UsbVersion {
+enum UsbVersion(this.value) {
   /// USB 1.1 (bcdUSB = 0x0110)
   v11(0x0110),
 
@@ -26,8 +26,6 @@ enum UsbVersion {
   /// USB 3.1 (bcdUSB = 0x0310)
   v31(0x0310);
 
-  const UsbVersion(this.value);
-
   /// The BCD value for this USB version.
   final int value;
 }
@@ -40,7 +38,7 @@ enum UsbVersion {
 /// - Sublanguage/dialect (high 6 bits)
 ///
 /// These IDs follow the Microsoft Language ID specification used by USB.
-enum LanguageId {
+enum LanguageId(this.value) {
   /// English (United States) - 0x0409
   ///
   /// The most common language ID used in USB devices.
@@ -88,8 +86,6 @@ enum LanguageId {
   /// Polish (Poland) - 0x0415
   plPL(0x0415);
 
-  const LanguageId(this.value);
-
   /// The raw language ID value.
   final int value;
 
@@ -110,7 +106,7 @@ enum LanguageId {
 /// - Endpoint descriptors
 /// - Companion descriptors (for SuperSpeed+)
 /// - Class-specific descriptors
-class DescriptorSet {
+class const DescriptorSet(this.descriptors) {
   /// Creates a descriptor set from a list of descriptors.
   ///
   /// The descriptors should be in the order they appear in the configuration:
@@ -118,14 +114,18 @@ class DescriptorSet {
   /// 2. Class-specific descriptors (if any)
   /// 3. Endpoint descriptors
   /// 4. SuperSpeed companion descriptors (if applicable)
-  const DescriptorSet(this.descriptors);
+  this;
 
+  /// The descriptors, in order.
   final List<Descriptor> descriptors;
 
+  /// Combined length of the descriptors, in bytes.
   int get totalLength => descriptors.fold(0, (sum, desc) => sum + desc.bLength);
 
+  /// Number of descriptors.
   int get count => descriptors.length;
 
+  /// The descriptors concatenated.
   Uint8List toBytes() {
     final buffer = BytesBuilder(copy: false);
     for (final descriptor in descriptors) {
@@ -145,14 +145,14 @@ class DescriptorSet {
 ///
 /// String index 0 is reserved for the language ID list and should not be
 /// included in the strings array.
-class LanguageStrings {
+class const LanguageStrings({required this.language, required this.strings}) {
   /// Creates a string set for a specific language.
   ///
   /// The [strings] list contains the actual string values, where:
   /// - Index 0 corresponds to string descriptor index 1
   /// - Index 1 corresponds to string descriptor index 2
   /// and so on. The language ID is specified separately in [language].
-  const LanguageStrings({required this.language, required this.strings});
+  this;
 
   /// The language ID for these strings.
   final LanguageId language;
@@ -195,7 +195,10 @@ class LanguageStrings {
 /// Generates Full-Speed, High-Speed, SuperSpeed, and SuperSpeedPlus
 /// descriptor sets from a shared base template. Handles endpoint
 /// descriptor transformations based on USB speed requirements.
-abstract class DescriptorGenerator {
+abstract class DescriptorGenerator() {
+  /// Creates a generator.
+  this;
+
   /// Generates a descriptor set for a specific USB speed.
   ///
   /// Takes a list of base descriptors and produces speed-specific variants:
@@ -284,8 +287,9 @@ abstract class Descriptor {
 }
 
 /// Raw USB descriptor wrapper.
-class RawDescriptor implements Descriptor {
-  RawDescriptor(List<int> bytes)
+class RawDescriptor(List<int> bytes) implements Descriptor {
+  /// Wraps [bytes], which start with `bLength` and `bDescriptorType`.
+  this
     : assert(bytes.length >= 2, 'Descriptor data must be at least 2 bytes'),
       _data = Uint8List.fromList(bytes);
 
@@ -307,7 +311,13 @@ class RawDescriptor implements Descriptor {
 /// within a USB device configuration. An interface represents a single function
 /// (like mass storage, audio input, etc.) and can have multiple alternate
 /// settings to provide different bandwidth or endpoint configurations.
-class InterfaceDescriptor implements Descriptor {
+class const InterfaceDescriptor({
+  required this.interfaceNumber,
+  this.alternateSetting = AlternateSetting.default_,
+  required this.numEndpoints,
+  required this.class_,
+  this.stringIndex = StringIndex.none,
+}) implements Descriptor {
   /// Creates a USB interface descriptor.
   ///
   /// Parameters:
@@ -316,13 +326,7 @@ class InterfaceDescriptor implements Descriptor {
   /// - [numEndpoints]: Number of endpoints excluding EP0 (required)
   /// - [class_]: Class code (required, use [ClassType] enum)
   /// - [stringIndex]: String descriptor index (default: none)
-  const InterfaceDescriptor({
-    required this.interfaceNumber,
-    this.alternateSetting = AlternateSetting.default_,
-    required this.numEndpoints,
-    required this.class_,
-    this.stringIndex = StringIndex.none,
-  });
+  this;
 
   /// Parses a 9-byte interface descriptor, such as one read from a device.
   ///
@@ -394,7 +398,14 @@ class InterfaceDescriptor implements Descriptor {
 /// By default this produces a standard 7-byte descriptor (`bLength = 7`).
 /// When [bRefresh] or [bSynchAddress] are non-zero (USB Audio Class usage),
 /// `bLength` becomes 9 to include those extra fields.
-class EndpointDescriptor implements Descriptor {
+class const EndpointDescriptor({
+  required this.address,
+  required this.attributes,
+  required this.maxPacketSize,
+  this.interval = const PollingInterval.none(),
+  this.bRefresh = 0,
+  this.bSynchAddress = 0,
+}) implements Descriptor {
   /// Creates a USB endpoint descriptor.
   ///
   /// Parameters:
@@ -404,14 +415,7 @@ class EndpointDescriptor implements Descriptor {
   /// - [interval]: Polling interval (default: none)
   /// - [bRefresh]: Audio refresh rate (default: 0, non-audio endpoints)
   /// - [bSynchAddress]: Audio sync endpoint address (default: 0, non-audio endpoints)
-  const EndpointDescriptor({
-    required this.address,
-    required this.attributes,
-    required this.maxPacketSize,
-    this.interval = const PollingInterval.none(),
-    this.bRefresh = 0,
-    this.bSynchAddress = 0,
-  });
+  this;
 
   /// Parses a 7-byte endpoint descriptor (9 bytes for USB Audio Class
   /// endpoints), such as one read from a device.
@@ -497,18 +501,18 @@ class EndpointDescriptor implements Descriptor {
 /// Provides additional information for SuperSpeed endpoints. Required for all
 /// endpoints when operating at SuperSpeed (5 Gbps). This descriptor immediately
 /// follows the endpoint descriptor it describes.
-class SuperSpeedEndpointCompanionDescriptor implements Descriptor {
+class const SuperSpeedEndpointCompanionDescriptor({
+  this.maxBurst = BurstSize.single,
+  this.attributes = const SuperSpeedEndpointAttributes.interrupt(),
+  this.bytesPerInterval = BytesPerInterval.none,
+}) implements Descriptor {
   /// Creates a SuperSpeed endpoint companion descriptor.
   ///
   /// Parameters:
   /// - [maxBurst]: Maximum burst size (default: single packet)
   /// - [attributes]: Endpoint-specific attributes (default: interrupt/control)
   /// - [bytesPerInterval]: Bytes per interval (default: none)
-  const SuperSpeedEndpointCompanionDescriptor({
-    this.maxBurst = BurstSize.single,
-    this.attributes = const SuperSpeedEndpointAttributes.interrupt(),
-    this.bytesPerInterval = BytesPerInterval.none,
-  });
+  this;
 
   @override
   int get bLength => 6;
@@ -555,16 +559,16 @@ class SuperSpeedEndpointCompanionDescriptor implements Descriptor {
 /// Provides additional information for SuperSpeedPlus isochronous endpoints.
 /// Used when operating at SuperSpeedPlus speeds (10+ Gbps) with isochronous
 /// transfer type.
-class SuperSpeedPlusIsocCompanionDescriptor implements Descriptor {
+class const SuperSpeedPlusIsocCompanionDescriptor({
+  this.wReserved = 0,
+  required this.bytesPerInterval,
+}) implements Descriptor {
   /// Creates a SuperSpeedPlus isochronous endpoint companion descriptor.
   ///
   /// Parameters:
   /// - [wReserved]: Reserved field (default: 0)
   /// - [bytesPerInterval]: Extended bytes per interval (required)
-  const SuperSpeedPlusIsocCompanionDescriptor({
-    this.wReserved = 0,
-    required this.bytesPerInterval,
-  });
+  this;
 
   @override
   int get bLength => 8;
@@ -602,7 +606,14 @@ class SuperSpeedPlusIsocCompanionDescriptor implements Descriptor {
 /// single device driver to manage multiple related interfaces. Commonly used
 /// by composite devices like USB webcams (video + audio interfaces) or
 /// multi-function peripherals.
-class InterfaceAssociationDescriptor implements Descriptor {
+class const InterfaceAssociationDescriptor({
+  required this.firstInterface,
+  required this.interfaceCount,
+  required this.functionClass,
+  this.functionSubClass = 0,
+  this.functionProtocol = 0,
+  this.functionString = StringIndex.none,
+}) implements Descriptor {
   /// Creates an interface association descriptor.
   ///
   /// Parameters:
@@ -612,14 +623,7 @@ class InterfaceAssociationDescriptor implements Descriptor {
   /// - [functionSubClass]: Function subclass (default: 0)
   /// - [functionProtocol]: Function protocol (default: 0)
   /// - [functionString]: String descriptor index (default: none)
-  const InterfaceAssociationDescriptor({
-    required this.firstInterface,
-    required this.interfaceCount,
-    required this.functionClass,
-    this.functionSubClass = 0,
-    this.functionProtocol = 0,
-    this.functionString = StringIndex.none,
-  });
+  this;
 
   @override
   int get bLength => 8;
@@ -700,9 +704,7 @@ class InterfaceAssociationDescriptor implements Descriptor {
 /// Each subtype carries only the fields relevant to its transfer type and
 /// overrides [getMaxPacketSize] and [getPollingInterval] directly — no
 /// runtime dispatch on a `transferType` field is needed.
-sealed class EndpointConfig {
-  const EndpointConfig({this.maxPacketSize});
-
+sealed class const EndpointConfig({this.maxPacketSize}) {
   const factory EndpointConfig.bulk({int? maxPacketSize}) = BulkEndpointConfig;
 
   const factory EndpointConfig.control({int? maxPacketSize}) =
@@ -746,8 +748,10 @@ sealed class EndpointConfig {
 /// - SuperSpeed / SuperSpeedPlus: 512 bytes (USB 3.x spec §9.6.6)
 ///
 /// Polling interval is irrelevant for bulk endpoints (always zero).
-final class BulkEndpointConfig extends EndpointConfig {
-  const BulkEndpointConfig({super.maxPacketSize});
+final class const BulkEndpointConfig({super.maxPacketSize})
+    extends EndpointConfig {
+  /// A bulk endpoint; [maxPacketSize] overrides the per-speed default.
+  this;
 
   @override
   TransferType get transferType => TransferType.bulk;
@@ -771,8 +775,10 @@ final class BulkEndpointConfig extends EndpointConfig {
 /// - SuperSpeed / SuperSpeedPlus: 512 bytes (fixed by spec)
 ///
 /// Polling interval is irrelevant for control endpoints (always zero).
-final class ControlEndpointConfig extends EndpointConfig {
-  const ControlEndpointConfig({super.maxPacketSize});
+final class const ControlEndpointConfig({super.maxPacketSize})
+    extends EndpointConfig {
+  /// A control endpoint; [maxPacketSize] overrides the per-speed default.
+  this;
 
   @override
   TransferType get transferType => TransferType.control;
@@ -797,8 +803,12 @@ final class ControlEndpointConfig extends EndpointConfig {
 /// - Full-Speed: up to 64 bytes
 /// - High-Speed: up to 1024 bytes
 /// - SuperSpeed: up to 1024 bytes
-final class InterruptEndpointConfig extends EndpointConfig {
-  const InterruptEndpointConfig({required this.interval, super.maxPacketSize});
+final class const InterruptEndpointConfig({
+  required this.interval,
+  super.maxPacketSize,
+}) extends EndpointConfig {
+  /// An interrupt endpoint polled every [interval].
+  this;
 
   /// Polling interval (used directly for Full-Speed; converted for HS/SS).
   final Duration interval;
@@ -829,7 +839,7 @@ final class InterruptEndpointConfig extends EndpointConfig {
   /// smallest exponent whose interval is ≥ [ms].
   static int _msToExponent(int ms) {
     if (ms <= 0) return 1;
-    final microframes = (ms / 0.125).round().clamp(1, 32768);
+    final microframes = (ms / 0.125).round().clamp(1, 32_768);
     var exp = 1;
     while ((1 << (exp - 1)) < microframes && exp < 16) {
       exp++;
@@ -847,12 +857,13 @@ final class InterruptEndpointConfig extends EndpointConfig {
 /// - Full-Speed: up to 1023 bytes
 /// - High-Speed: up to 1024 bytes (1 transaction/microframe)
 /// - SuperSpeed: up to 1024 bytes
-final class IsochronousEndpointConfig extends EndpointConfig {
-  const IsochronousEndpointConfig({
-    required this.syncType,
-    required this.usageType,
-    super.maxPacketSize,
-  });
+final class const IsochronousEndpointConfig({
+  required this.syncType,
+  required this.usageType,
+  super.maxPacketSize,
+}) extends EndpointConfig {
+  /// An isochronous endpoint.
+  this;
 
   /// Isochronous synchronization type (bits 2–3 of bmAttributes).
   final IsoSyncType syncType;
@@ -889,13 +900,14 @@ final class IsochronousEndpointConfig extends EndpointConfig {
 ///
 /// Use [DescriptorGenerator.generateForSpeed()] to convert this template
 /// into actual endpoint descriptors appropriate for a specific USB speed.
-class EndpointTemplate implements Descriptor {
+class const EndpointTemplate({required this.address, required this.config})
+    implements Descriptor {
   /// Creates an endpoint template.
   ///
   /// Parameters:
   /// - [address]: Endpoint address with direction (required)
   /// - [config]: Endpoint configuration (required)
-  const EndpointTemplate({required this.address, required this.config});
+  this;
 
   /// Endpoint address (number and direction).
   final EndpointAddress address;

@@ -335,11 +335,11 @@ void main() {
     });
 
     test('device descriptor', () {
-      final built = DeviceDescriptor(
+      const built = DeviceDescriptor(
         usbVersion: 0x0210,
-        class_: const Class.raw(0xef, 0x02, 0x01),
+        class_: Class.raw(0xef, 0x02, 0x01),
         maxPacketSize0: 64,
-        id: const Id(vendor: 0x1234, product: 0x5678),
+        id: Id(vendor: 0x1234, product: 0x5678),
         deviceVersion: 0x0100,
         manufacturer: StringIndex.manufacturer,
         numConfigurations: 1,

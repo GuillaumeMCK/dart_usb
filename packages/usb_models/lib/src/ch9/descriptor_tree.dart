@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../../usb_models.dart';
+import 'package:usb_models/usb_models.dart';
 
 /// Splits concatenated descriptors into individual [RawDescriptor]s.
 ///
@@ -20,18 +20,19 @@ List<RawDescriptor> splitDescriptors(List<int> bytes) {
 }
 
 /// A device descriptor, as read from a device.
-final class DeviceDescriptor {
-  const DeviceDescriptor({
-    required this.usbVersion,
-    required this.class_,
-    required this.maxPacketSize0,
-    required this.id,
-    required this.deviceVersion,
-    this.manufacturer = StringIndex.none,
-    this.product = StringIndex.none,
-    this.serialNumber = StringIndex.none,
-    required this.numConfigurations,
-  });
+final class const DeviceDescriptor({
+  required this.usbVersion,
+  required this.class_,
+  required this.maxPacketSize0,
+  required this.id,
+  required this.deviceVersion,
+  this.manufacturer = StringIndex.none,
+  this.product = StringIndex.none,
+  this.serialNumber = StringIndex.none,
+  required this.numConfigurations,
+}) {
+  /// A device descriptor with the given fields; see [DeviceDescriptor.parse].
+  this;
 
   /// Parses an 18-byte device descriptor.
   ///
@@ -114,9 +115,7 @@ final class DeviceDescriptor {
 
 /// A configuration descriptor with its interfaces, alternate settings and
 /// endpoints, as read from a device.
-final class ConfigurationDescriptor {
-  ConfigurationDescriptor._(this.bytes, this.interfaces);
-
+final class ConfigurationDescriptor._(this.bytes, this.interfaces) {
   /// Parses a configuration descriptor and the descriptors that follow it,
   /// up to `wTotalLength`.
   ///
@@ -195,9 +194,11 @@ final class ConfigurationDescriptor {
 }
 
 /// All the alternate settings of one interface.
-final class InterfaceDescriptors {
-  const InterfaceDescriptors(this.interfaceNumber, this.altSettings);
+final class const InterfaceDescriptors(this.interfaceNumber, this.altSettings) {
+  /// Interface [interfaceNumber] with its [altSettings].
+  this;
 
+  /// `bInterfaceNumber`.
   final InterfaceNumber interfaceNumber;
 
   /// Alternate settings in descriptor order; the first is usually setting 0.
@@ -210,8 +211,13 @@ final class InterfaceDescriptors {
 
 /// One alternate setting of an interface: its descriptor, endpoints and
 /// any class-specific descriptors.
-final class InterfaceAltSetting {
-  const InterfaceAltSetting(this.descriptor, this.endpoints, this.descriptors);
+final class const InterfaceAltSetting(
+  this.descriptor,
+  this.endpoints,
+  this.descriptors,
+) {
+  /// An alternate setting described by [descriptor].
+  this;
 
   /// Parses an interface descriptor followed by its endpoint and
   /// class-specific descriptors, up to the next interface descriptor.
@@ -237,9 +243,16 @@ final class InterfaceAltSetting {
   /// interface: endpoints and class-specific descriptors.
   final List<RawDescriptor> descriptors;
 
+  /// `bInterfaceNumber`.
   InterfaceNumber get interfaceNumber => descriptor.interfaceNumber;
+
+  /// `bAlternateSetting`.
   AlternateSetting get alternateSetting => descriptor.alternateSetting;
+
+  /// Interface class, subclass and protocol.
   Class get class_ => descriptor.class_;
+
+  /// String index of the interface name.
   StringIndex get stringIndex => descriptor.stringIndex;
 
   @override
@@ -280,7 +293,7 @@ List<InterfaceDescriptors> _groupInterfaces(List<RawDescriptor> descriptors) {
 
 /// String descriptors: UTF-16LE text, or the list of supported languages
 /// at index 0.
-abstract final class StringDescriptor {
+abstract final class StringDescriptor() {
   /// Decodes a string descriptor, or returns `null` if [bytes] isn't one.
   /// Unpaired surrogates become U+FFFD.
   static String? decode(List<int> bytes) {

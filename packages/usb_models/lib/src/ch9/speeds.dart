@@ -2,7 +2,7 @@
 ///
 /// Defines the different USB speed modes that affect endpoint configuration,
 /// packet sizes, and polling intervals.
-enum Speed {
+enum Speed(this.value, this._priority) {
   /// USB 3.1: 10 Gbit/s.
   superSpeedPlus('super-speed-plus', 6),
 
@@ -20,8 +20,6 @@ enum Speed {
 
   /// Unknown speed.
   unknown('UNKNOWN', 0);
-
-  const Speed(this.value, this._priority);
 
   /// The string value as it appears in sysfs/configfs files.
   final String value;
@@ -59,11 +57,15 @@ enum Speed {
   /// True if speed is unknown.
   bool get isUnknown => this == unknown;
 
+  /// Whether this speed is faster than [other].
   bool operator >(Speed other) => _priority > other._priority;
 
+  /// Whether this speed is slower than [other].
   bool operator <(Speed other) => _priority < other._priority;
 
+  /// Whether this speed is at least [other].
   bool operator >=(Speed other) => _priority >= other._priority;
 
+  /// Whether this speed is at most [other].
   bool operator <=(Speed other) => _priority <= other._priority;
 }

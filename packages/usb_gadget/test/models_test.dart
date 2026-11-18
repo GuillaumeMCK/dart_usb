@@ -5,7 +5,7 @@ import 'package:usb_gadget/usb_gadget.dart';
 void main() {
   test('frame rates become 100 ns intervals', () {
     final frame = VideoFrame.fps(640, 480, .mjpeg, [30, 60]);
-    expect(frame.intervals, [333333, 166666]);
+    expect(frame.intervals, [333_333, 166_666]);
   });
 
   test('config descriptions default to US English', () {

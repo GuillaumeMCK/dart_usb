@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'rust/api/error.dart';
+import 'package:usb_gadget/src/rust/api/error.dart';
 
 /// A single-subscription stream fed by repeatedly awaiting [next] on a
 /// native object, for native sources flutter_rust_bridge can't push from.

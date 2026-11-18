@@ -13,14 +13,23 @@
 ///   }
 /// }
 /// ```
+///
+/// @docImport 'src/usb.dart';
 library;
 
+export 'package:usb_models/usb_models.dart';
+
+export 'src/models.dart';
 export 'src/rust/api/device.dart';
 export 'src/rust/api/endpoint.dart';
 export 'src/rust/api/enumeration.dart'
-    show BusInfo, DeviceId, DeviceInfo, DeviceSelector, HotplugEvent, InterfaceInfo;
+    show
+        BusInfo,
+        DeviceId,
+        DeviceInfo,
+        DeviceSelector,
+        HotplugEvent,
+        InterfaceInfo;
 export 'src/rust/api/error.dart';
 export 'src/rust/api/types.dart';
-export 'src/models.dart';
 export 'src/usb.dart';
-export 'package:usb_models/usb_models.dart';

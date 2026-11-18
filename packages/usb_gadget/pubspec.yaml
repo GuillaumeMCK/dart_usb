@@ -23,7 +23,5 @@ dependencies:
   usb_models: ^0.1.0
 
 dev_dependencies:
-  usb_host: ^0.1.0
-  leancode_lint: ^26.2.0
-  lints: ^6.1.0
   test: ^1.25.0
+  usb_host: ^0.1.0

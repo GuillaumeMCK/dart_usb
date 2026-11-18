@@ -1,23 +1,29 @@
 part of 'custom.dart';
 
 /// An interface of a [CustomFunction].
-final class CustomInterface {
-  CustomInterface(
-    this.class_, {
-    this.name = '',
-    this.names = const {},
-    this.endpoints = const [],
-    this.association,
-    this.osExtCompat = const [],
-    this.osExtProperties = const [],
-    this.descriptors = const [],
-  });
+final class CustomInterface(
+  this.class_, {
+  this.name = '',
+  this.names = const {},
+  this.endpoints = const [],
+  this.association,
+  this.osExtCompat = const [],
+  this.osExtProperties = const [],
+  this.descriptors = const [],
+}) {
+  /// An interface of class [class_] with [endpoints].
+  this;
 
+  /// Interface class, subclass and protocol.
   final Class class_;
 
   /// Interface string in US English; see [names] for other languages.
   final String name;
+
+  /// Interface string per language, overriding [name].
   final Map<LanguageId, String> names;
+
+  /// The endpoints, in order.
   final List<CustomEndpoint> endpoints;
 
   /// Groups adjacent interfaces into one function for the host.
@@ -36,50 +42,74 @@ final class CustomInterface {
 
 /// Groups interfaces that share it into one function. Associated interfaces
 /// must be adjacent.
-final class InterfaceAssociation {
-  InterfaceAssociation(this.class_, {this.name = '', this.names = const {}});
+final class InterfaceAssociation(
+  this.class_, {
+  this.name = '',
+  this.names = const {},
+}) {
+  /// An association of class [class_].
+  this;
 
+  /// Function class, subclass and protocol.
   final Class class_;
+
+  /// Function string in US English.
   final String name;
+
+  /// Function string per language, overriding [name].
   final Map<LanguageId, String> names;
 }
 
 /// Microsoft extended compatibility ID.
-final class OsExtCompat {
-  const OsExtCompat(this.compatibleId, [this.subCompatibleId = '']);
+final class const OsExtCompat(this.compatibleId, [this.subCompatibleId = '']) {
+  /// A compatibility ID such as `WINUSB`.
+  this;
 
   /// Binds Windows' WinUSB driver.
   static const winUsb = OsExtCompat('WINUSB');
 
   /// Up to 8 ASCII characters.
   final String compatibleId;
+
+  /// Sub-compatibility ID, up to 8 ASCII characters.
   final String subCompatibleId;
 }
 
 /// A Microsoft extended property: a registry value Windows stores for the
 /// interface.
-final class OsExtProperty {
-  const OsExtProperty._(
-    this.name,
-    this._kind, {
-    this.text = '',
-    this.binary = const [],
-    this.dword = 0,
-    this.strings = const [],
-  });
-
+final class const OsExtProperty._(
+  this.name,
+  this._kind, {
+  this.text = '',
+  this.binary = const [],
+  this.dword = 0,
+  this.strings = const [],
+}) {
+  /// A `REG_SZ` string value.
   const OsExtProperty.string(String name, String value)
     : this._(name, rust.OsRegValueKind.sz, text: value);
+
+  /// A `REG_EXPAND_SZ` string value.
   const OsExtProperty.expandString(String name, String value)
     : this._(name, rust.OsRegValueKind.expandSz, text: value);
+
+  /// A `REG_BINARY` value.
   const OsExtProperty.binary(String name, List<int> value)
     : this._(name, rust.OsRegValueKind.binary, binary: value);
+
+  /// A little-endian `REG_DWORD` value.
   const OsExtProperty.dword(String name, int value)
     : this._(name, rust.OsRegValueKind.dwordLe, dword: value);
+
+  /// A `REG_DWORD_BIG_ENDIAN` value.
   const OsExtProperty.dwordBigEndian(String name, int value)
     : this._(name, rust.OsRegValueKind.dwordBe, dword: value);
+
+  /// A `REG_LINK` value.
   const OsExtProperty.link(String name, String value)
     : this._(name, rust.OsRegValueKind.link, text: value);
+
+  /// A `REG_MULTI_SZ` value.
   const OsExtProperty.multiString(String name, List<String> value)
     : this._(name, rust.OsRegValueKind.multiSz, strings: value);
 
@@ -88,11 +118,20 @@ final class OsExtProperty {
   const OsExtProperty.deviceInterfaceGuid(String guid)
     : this._('DeviceInterfaceGUID', rust.OsRegValueKind.sz, text: '{$guid}');
 
+  /// Registry value name.
   final String name;
   final rust.OsRegValueKind _kind;
+
+  /// The value of string and link properties.
   final String text;
+
+  /// The value of binary properties.
   final List<int> binary;
+
+  /// The value of DWORD properties.
   final int dword;
+
+  /// The value of multi-string properties.
   final List<String> strings;
 
   rust.OsExtPropSpec _spec() => rust.OsExtPropSpec(
@@ -106,8 +145,9 @@ final class OsExtProperty {
 }
 
 /// A class-specific descriptor of a [CustomInterface].
-final class CustomDescriptor {
-  const CustomDescriptor(this.descriptorType, this.data);
+final class const CustomDescriptor(this.descriptorType, this.data) {
+  /// A descriptor of type [descriptorType] carrying [data].
+  this;
 
   /// `bDescriptorType`.
   final int descriptorType;
@@ -118,20 +158,21 @@ final class CustomDescriptor {
 
 /// An endpoint of a [CustomInterface]. Its direction comes from [io]: an
 /// [InEndpoint] makes an IN endpoint, an [OutEndpoint] an OUT one.
-final class CustomEndpoint {
-  const CustomEndpoint(
-    this.io, {
-    this.transferType = .bulk,
-    this.syncType = .noSync,
-    this.usageType = .data,
-    this.maxPacketSizeHighSpeed = 512,
-    this.maxPacketSizeSuperSpeed = 1024,
-    this.maxBurstSuperSpeed = 0,
-    this.bytesPerIntervalSuperSpeed = 0,
-    this.interval,
-    this.audioRefresh,
-    this.audioSynchAddress,
-  });
+final class const CustomEndpoint(
+  this.io, {
+  this.transferType = .bulk,
+  this.syncType = .noSync,
+  this.usageType = .data,
+  this.maxPacketSizeHighSpeed = 512,
+  this.maxPacketSizeSuperSpeed = 1024,
+  this.maxBurstSuperSpeed = 0,
+  this.bytesPerIntervalSuperSpeed = 0,
+  this.interval,
+  this.audioRefresh,
+  this.audioSynchAddress,
+}) {
+  /// An endpoint backed by [io]; see the named constructors.
+  this;
 
   /// A bulk endpoint.
   const CustomEndpoint.bulk(
@@ -183,7 +224,10 @@ final class CustomEndpoint {
          audioSynchAddress: audioSynchAddress,
        );
 
+  /// The data side: [InEndpoint] or [OutEndpoint].
   final EndpointIo io;
+
+  /// Transfer type.
   final TransferType transferType;
 
   /// Isochronous only.
@@ -191,9 +235,17 @@ final class CustomEndpoint {
 
   /// Isochronous only.
   final IsoUsageType usageType;
+
+  /// Max packet size at high speed.
   final int maxPacketSizeHighSpeed;
+
+  /// Max packet size at SuperSpeed.
   final int maxPacketSizeSuperSpeed;
+
+  /// SuperSpeed burst: extra packets per service interval (0 to 15).
   final int maxBurstSuperSpeed;
+
+  /// SuperSpeed bytes per service interval (periodic endpoints).
   final int bytesPerIntervalSuperSpeed;
 
   /// `bInterval`; `null` for 0 on IN and 1 on OUT bulk endpoints.

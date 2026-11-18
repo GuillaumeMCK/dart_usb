@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'loader.dart';
-import 'rust/api/enumeration.dart' as rust;
-import 'rust/frb_generated.dart';
+import 'package:usb_host/src/loader.dart';
+import 'package:usb_host/src/rust/api/enumeration.dart' as rust;
+import 'package:usb_host/src/rust/frb_generated.dart';
 
-/// A device was connected; see [HotplugEvent].
+/// A device was connected; see [rust.HotplugEvent].
 typedef HotplugConnected = rust.HotplugEvent_Connected;
 
-/// A device was disconnected; see [HotplugEvent].
+/// A device was disconnected; see [rust.HotplugEvent].
 typedef HotplugDisconnected = rust.HotplugEvent_Disconnected;
 
 /// Access to the USB devices of this system: the entry point to usb_host.
@@ -18,9 +18,7 @@ typedef HotplugDisconnected = rust.HotplugEvent_Disconnected;
 ///   print(device);
 /// }
 /// ```
-final class Usb {
-  Usb._();
-
+final class Usb._() {
   static Future<Usb>? _instance;
 
   /// Loads the native library and returns the shared [Usb] instance.
@@ -46,8 +44,9 @@ final class Usb {
 
   /// The first device matching any of [selectors] (any device by default),
   /// or `null` if none is connected.
-  Future<rust.DeviceInfo?> findDevice([List<rust.DeviceSelector> selectors = const [rust.DeviceSelector()]]) =>
-      rust.requestDevice(selectors);
+  Future<rust.DeviceInfo?> findDevice([
+    List<rust.DeviceSelector> selectors = const [rust.DeviceSelector()],
+  ]) => rust.requestDevice(selectors);
 
   /// Devices connecting and disconnecting, from the moment this stream is
   /// listened to. Cancel the subscription to stop watching.

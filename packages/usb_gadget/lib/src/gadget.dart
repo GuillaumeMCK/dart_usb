@@ -1,20 +1,23 @@
+import 'package:usb_gadget/src/function.dart';
+import 'package:usb_gadget/src/loader.dart';
+import 'package:usb_gadget/src/rust/api.dart' show LocalizedString;
+import 'package:usb_gadget/src/rust/api/gadget.dart' as rust;
+import 'package:usb_gadget/src/rust/api/udc.dart' show Udc;
 import 'package:usb_models/usb_models.dart';
 
-import 'function.dart';
-import 'loader.dart';
-import 'rust/api.dart' show LocalizedString;
-import 'rust/api/gadget.dart' as rust;
-import 'rust/api/udc.dart' show Udc;
-
 /// Device strings in one language.
-final class GadgetStrings {
-  const GadgetStrings({
-    this.manufacturer = '',
-    this.product = '',
-    this.serialNumber = '',
-  });
+final class const GadgetStrings({
+  this.manufacturer = '',
+  this.product = '',
+  this.serialNumber = '',
+}) {
+  /// Strings for one language.
+  this;
 
+  /// Manufacturer name.
   final String manufacturer;
+
+  /// Product name.
   final String product;
 
   /// Should be unique per device; required by some classes, such as mass
@@ -24,15 +27,16 @@ final class GadgetStrings {
 
 /// A configuration: the set of functions a host enables together. Most
 /// gadgets have one.
-final class Config {
-  Config({
-    this.description = '',
-    this.functions = const [],
-    this.maxPower = const MaxPower(500),
-    this.selfPowered = false,
-    this.remoteWakeup = false,
-    Map<LanguageId, String> descriptions = const {},
-  }) : descriptions = {.enUS: description, ...descriptions};
+final class Config({
+  this.description = '',
+  this.functions = const [],
+  this.maxPower = const MaxPower(500),
+  this.selfPowered = false,
+  this.remoteWakeup = false,
+  Map<LanguageId, String> descriptions = const {},
+}) {
+  /// A configuration with [functions].
+  this : descriptions = {.enUS: description, ...descriptions};
 
   /// Description in US English; see [descriptions] for other languages.
   final String description;
@@ -40,6 +44,7 @@ final class Config {
   /// Description per language.
   final Map<LanguageId, String> descriptions;
 
+  /// The functions, in order.
   final List<GadgetFunction> functions;
 
   /// Maximum current drawn from the bus.
@@ -54,12 +59,13 @@ final class Config {
 
 /// Microsoft OS descriptor, which lets Windows load drivers such as WinUSB
 /// without an INF file.
-final class OsDescriptor {
-  const OsDescriptor({
-    this.vendorCode = 0xf0,
-    this.qwSign = 'MSFT100',
-    this.config = 0,
-  });
+final class const OsDescriptor({
+  this.vendorCode = 0xf0,
+  this.qwSign = 'MSFT100',
+  this.config = 0,
+}) {
+  /// A Microsoft OS descriptor; the defaults are Microsoft's.
+  this;
 
   /// Vendor request code Windows uses to fetch the descriptors.
   final int vendorCode;
@@ -73,15 +79,18 @@ final class OsDescriptor {
 
 /// WebUSB platform capability: lets browsers find the device and suggest
 /// [landingPage].
-final class WebUsb {
-  const WebUsb({
-    required this.vendorCode,
-    required this.landingPage,
-    this.version = 0x0100,
-  });
+final class const WebUsb({
+  required this.vendorCode,
+  required this.landingPage,
+  this.version = 0x0100,
+}) {
+  /// The WebUSB capability pointing browsers at [landingPage].
+  this;
 
   /// Vendor request code browsers use to fetch the landing page.
   final int vendorCode;
+
+  /// URL browsers suggest when the device is plugged in.
   final String landingPage;
 
   /// `bcdVersion`; 0x0100 for WebUSB 1.0.
@@ -99,21 +108,22 @@ final class WebUsb {
 /// );
 /// final registered = await gadget.bind(await defaultUdc());
 /// ```
-final class Gadget {
-  Gadget({
-    required this.id,
-    this.class_ = const Class.interfaceSpecific(),
-    this.strings = const {},
-    this.configs = const [],
-    this.name,
-    this.deviceRelease = 0,
-    this.usbVersion = .v20,
-    this.maxPacketSize0 = 64,
-    this.maxSpeed,
-    this.osDescriptor,
-    this.webUsb,
-    this.keepOnError = false,
-  });
+final class Gadget({
+  required this.id,
+  this.class_ = const Class.interfaceSpecific(),
+  this.strings = const {},
+  this.configs = const [],
+  this.name,
+  this.deviceRelease = 0,
+  this.usbVersion = .v20,
+  this.maxPacketSize0 = 64,
+  this.maxSpeed,
+  this.osDescriptor,
+  this.webUsb,
+  this.keepOnError = false,
+}) {
+  /// A gadget with vendor and product [id].
+  this;
 
   /// Vendor and product IDs.
   final Id id;
@@ -125,6 +135,7 @@ final class Gadget {
   /// Device strings per language.
   final Map<LanguageId, GadgetStrings> strings;
 
+  /// The configurations; most gadgets have one.
   final List<Config> configs;
 
   /// Name of the configfs directory; `null` picks a free one.
@@ -132,12 +143,20 @@ final class Gadget {
 
   /// `bcdDevice`, such as 0x0100 for 1.0.
   final int deviceRelease;
+
+  /// `bcdUSB`: the USB version the device reports.
   final UsbVersion usbVersion;
+
+  /// `bMaxPacketSize0`: max packet size of the control endpoint.
   final int maxPacketSize0;
 
   /// Caps the speed below the controller's maximum.
   final Speed? maxSpeed;
+
+  /// Microsoft OS descriptor, for driverless WinUSB on Windows.
   final OsDescriptor? osDescriptor;
+
+  /// WebUSB capability.
   final WebUsb? webUsb;
 
   /// Keeps a partially created gadget in configfs when registration fails,
@@ -229,8 +248,9 @@ final class Gadget {
 /// It stays registered until [remove], and this object (with the gadget's
 /// functions) stays reachable until then: disposing it would remove the
 /// gadget.
-final class RegisteredGadget {
-  RegisteredGadget._(this._native, this.gadget) {
+final class RegisteredGadget._(this._native, this.gadget) {
+  /// A registration of [gadget], tracked until removed or detached.
+  this {
     _registered.add(this);
   }
 

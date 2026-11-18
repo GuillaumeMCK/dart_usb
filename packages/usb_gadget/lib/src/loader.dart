@@ -3,7 +3,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-import 'rust/frb_generated.dart';
+import 'package:usb_gadget/src/rust/frb_generated.dart';
 
 // hook/build.dart bundles the Rust crate as a code asset under this ID
 // (flutter_rust_bridge_hooks' default). Binding one symbol to it lets the
@@ -48,7 +48,7 @@ ExternalLibrary _library() {
   });
 }
 
-final class _DlInfo extends Struct {
+final class _DlInfo() extends Struct {
   external Pointer<Utf8> fname;
   external Pointer<Void> fbase;
   external Pointer<Utf8> sname;

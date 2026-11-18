@@ -8,7 +8,9 @@ void main(List<String> args) async {
     if (!input.config.buildCodeAssets) return;
     final os = input.config.code.targetOS;
     if (os != OS.linux && os != OS.android) return;
-    await const FlutterRustBridgeNativeAssetsBuilder(cratePath: 'rust')
-        .run(input: input, output: output);
+    await const FlutterRustBridgeNativeAssetsBuilder().run(
+      input: input,
+      output: output,
+    );
   });
 }

@@ -1,9 +1,11 @@
+/// @docImport 'package:usb_gadget/src/rust/api/error.dart';
+library;
+
 import 'dart:async';
 
+import 'package:usb_gadget/src/loader.dart';
+import 'package:usb_gadget/src/rust/api/udc.dart' as rust;
 import 'package:usb_models/usb_models.dart';
-
-import 'loader.dart';
-import 'rust/api/udc.dart' as rust;
 
 /// The USB device controllers (UDCs) of this system.
 Future<List<rust.Udc>> udcs() async {

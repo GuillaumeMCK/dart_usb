@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../../usb_models.dart';
+import 'package:usb_models/usb_models.dart';
 
 /// USB HID Descriptor.
 ///
@@ -13,7 +13,12 @@ import '../../usb_models.dart';
 /// - Country code (for localization)
 /// - Number and types of subordinate descriptors
 /// - Lengths of subordinate descriptors
-final class HidDescriptor implements Descriptor {
+final class const HidDescriptor({
+  this.hidVersion = 0x0111,
+  this.countryCode = 0x00,
+  required this.reportLength,
+  this.physicalDescriptorLength = 0,
+}) implements Descriptor {
   /// Creates a HID descriptor.
   ///
   /// Parameters:
@@ -21,15 +26,11 @@ final class HidDescriptor implements Descriptor {
   /// - [countryCode]: Hardware target country code (default: 0, not localized)
   /// - [reportLength]: Length of report descriptor in bytes (required)
   /// - [physicalDescriptorLength]: Length of physical descriptor (default: 0, not used)
-  const HidDescriptor({
-    this.hidVersion = 0x0111,
-    this.countryCode = 0x00,
-    required this.reportLength,
-    this.physicalDescriptorLength = 0,
-  }) : assert(
-         reportLength > 0,
-         'Report descriptor length must be greater than 0',
-       );
+  this
+    : assert(
+        reportLength > 0,
+        'Report descriptor length must be greater than 0',
+      );
 
   @override
   int get bLength => physicalDescriptorLength > 0 ? 12 : 9;

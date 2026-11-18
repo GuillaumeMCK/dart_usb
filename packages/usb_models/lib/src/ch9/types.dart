@@ -1,13 +1,13 @@
-import '../../usb_models.dart';
+import 'package:usb_models/usb_models.dart';
 
 /// Endpoint number (0-15).
 ///
 /// USB devices can have up to 16 endpoint numbers (0-15). Each endpoint
 /// number can have both an IN and OUT endpoint, making up to 32 total
 /// endpoints per device (though endpoint 0 is bidirectional control only).
-class EndpointNumber {
-  const EndpointNumber(this.value)
-    : assert(value >= 0 && value <= 15, 'Endpoint number must be 0-15');
+class const EndpointNumber(this.value) {
+  /// Endpoint number [value] (0 to 15).
+  this : assert(value >= 0 && value <= 15, 'Endpoint number must be 0-15');
 
   /// Extracts endpoint number from a bEndpointAddress byte.
   ///
@@ -19,20 +19,50 @@ class EndpointNumber {
 
   /// Common endpoint numbers.
   static const EndpointNumber ep0 = .new(0);
+
+  /// Endpoint 1.
   static const EndpointNumber ep1 = .new(1);
+
+  /// Endpoint 2.
   static const EndpointNumber ep2 = .new(2);
+
+  /// Endpoint 3.
   static const EndpointNumber ep3 = .new(3);
+
+  /// Endpoint 4.
   static const EndpointNumber ep4 = .new(4);
+
+  /// Endpoint 5.
   static const EndpointNumber ep5 = .new(5);
+
+  /// Endpoint 6.
   static const EndpointNumber ep6 = .new(6);
+
+  /// Endpoint 7.
   static const EndpointNumber ep7 = .new(7);
+
+  /// Endpoint 8.
   static const EndpointNumber ep8 = .new(8);
+
+  /// Endpoint 9.
   static const EndpointNumber ep9 = .new(9);
+
+  /// Endpoint 10.
   static const EndpointNumber ep10 = .new(10);
+
+  /// Endpoint 11.
   static const EndpointNumber ep11 = .new(11);
+
+  /// Endpoint 12.
   static const EndpointNumber ep12 = .new(12);
+
+  /// Endpoint 13.
   static const EndpointNumber ep13 = .new(13);
+
+  /// Endpoint 14.
   static const EndpointNumber ep14 = .new(14);
+
+  /// Endpoint 15.
   static const EndpointNumber ep15 = .new(15);
 
   @override
@@ -54,6 +84,7 @@ class EndpointNumber {
 /// - Bit 7: Direction (0 = OUT, 1 = IN)
 /// - Bits 4-6: Reserved, must be 0
 class EndpointAddress {
+  /// The endpoint [number] in [direction].
   const EndpointAddress(this.number, this.direction);
 
   /// Creates an IN (device-to-host) endpoint address.
@@ -107,16 +138,23 @@ class EndpointAddress {
 /// USB configurations can have multiple interfaces, each identified by
 /// a unique number. Interface numbers are assigned sequentially starting
 /// from 0 within each configuration.
-class InterfaceNumber {
-  const InterfaceNumber(this.value)
-    : assert(value >= 0 && value <= 255, 'Interface number must be 0-255');
+class const InterfaceNumber(this.value) {
+  /// Interface number [value] (0 to 255).
+  this : assert(value >= 0 && value <= 255, 'Interface number must be 0-255');
 
   /// The interface number (0-255).
   final int value;
 
+  /// Interface 0.
   static const InterfaceNumber interface0 = .new(0);
+
+  /// Interface 1.
   static const InterfaceNumber interface1 = .new(1);
+
+  /// Interface 2.
   static const InterfaceNumber interface2 = .new(2);
+
+  /// Interface 3.
   static const InterfaceNumber interface3 = .new(3);
 
   @override
@@ -141,16 +179,20 @@ class InterfaceNumber {
 /// - Alt 0: No streaming (no endpoints)
 /// - Alt 1: Low resolution streaming (smaller bandwidth)
 /// - Alt 2: High resolution streaming (larger bandwidth)
-class AlternateSetting {
-  const AlternateSetting(this.value)
-    : assert(value >= 0 && value <= 255, 'Alternate setting must be 0-255');
+class const AlternateSetting(this.value) {
+  /// Alternate setting [value] (0 to 255).
+  this : assert(value >= 0 && value <= 255, 'Alternate setting must be 0-255');
 
   /// The alternate setting number (0-255).
   final int value;
 
   /// Default alternate setting (always 0).
   static const AlternateSetting default_ = .new(0);
+
+  /// Alternate setting 1.
   static const AlternateSetting alt1 = .new(1);
+
+  /// Alternate setting 2.
   static const AlternateSetting alt2 = .new(2);
 
   @override
@@ -169,8 +211,9 @@ class AlternateSetting {
 /// Specifies the number of endpoints used by an interface, excluding
 /// the default control endpoint (endpoint 0). An interface can declare
 /// up to 30 additional endpoints (15 IN + 15 OUT).
-class EndpointCount {
-  const EndpointCount(this.value)
+class const EndpointCount(this.value) {
+  /// [value] endpoints (0 to 30).
+  this
     : assert(
         value >= 0 && value <= 30,
         'Endpoint count must be 0-30 (excluding EP0)',
@@ -179,8 +222,13 @@ class EndpointCount {
   /// Number of endpoints (0-30, excluding endpoint 0).
   final int value;
 
+  /// No endpoints besides endpoint 0.
   static const EndpointCount none = .new(0);
+
+  /// One endpoint.
   static const EndpointCount one = .new(1);
+
+  /// Two endpoints.
   static const EndpointCount two = .new(2);
 
   @override
@@ -204,9 +252,9 @@ class EndpointCount {
 ///
 /// String descriptors can be localized to different languages using
 /// the language ID in GET_DESCRIPTOR requests.
-class StringIndex {
-  const StringIndex(this.value)
-    : assert(value >= 0 && value <= 255, 'String index must be 0-255');
+class const StringIndex(this.value) {
+  /// String index [value] (0 to 255); 0 means no string.
+  this : assert(value >= 0 && value <= 255, 'String index must be 0-255');
 
   /// The string descriptor index (0-255).
   final int value;
@@ -216,7 +264,11 @@ class StringIndex {
 
   /// Common string descriptor indices.
   static const StringIndex manufacturer = .new(1);
+
+  /// Index 2, conventionally the product name.
   static const StringIndex product = .new(2);
+
+  /// Index 3, conventionally the serial number.
   static const StringIndex serialNumber = .new(3);
 
   /// True if this index references a string descriptor.
@@ -334,7 +386,7 @@ class EndpointAttributes {
 /// - Asynchronous: Source has no locked timing (bits 2–3 = 01)
 /// - Adaptive: Sink can adapt to rate feedback (bits 2–3 = 10)
 /// - Synchronous: Source/sink locked to USB SOF (bits 2–3 = 11)
-enum IsoSyncType {
+enum IsoSyncType(this.value) {
   /// No synchronization.
   ///
   /// The endpoint has no synchronization source. Distinct from [async],
@@ -356,8 +408,6 @@ enum IsoSyncType {
   /// The endpoint has fixed timing requirements.
   sync(0x0C);
 
-  const IsoSyncType(this.value);
-
   /// Raw value for bits 2-3 of bmAttributes.
   final int value;
 
@@ -377,7 +427,7 @@ enum IsoSyncType {
 /// - Data endpoint: Normal data transfer
 /// - Feedback endpoint: Provides rate feedback
 /// - Implicit feedback: Data endpoint with implicit feedback
-enum IsoUsageType {
+enum IsoUsageType(this.value) {
   /// Data endpoint.
   ///
   /// Standard isochronous data transfer.
@@ -392,8 +442,6 @@ enum IsoUsageType {
   ///
   /// Data endpoint that also provides implicit rate feedback.
   implicit(0x20);
-
-  const IsoUsageType(this.value);
 
   /// Raw value for bits 4-5 of bmAttributes.
   final int value;
@@ -678,9 +726,9 @@ final class PollingInterval {
 ///
 /// Bursts allow more efficient use of SuperSpeed links by sending multiple
 /// packets back-to-back without waiting for individual acknowledgments.
-final class BurstSize {
-  const BurstSize(this.value)
-    : assert(value >= 0 && value <= 15, 'Burst size must be 0-15');
+final class const BurstSize(this.value) {
+  /// Burst size [value] (0 to 15).
+  this : assert(value >= 0 && value <= 15, 'Burst size must be 0-15');
 
   /// Raw burst size value (0-15).
   final int value;
@@ -759,10 +807,11 @@ final class SuperSpeedEndpointAttributes {
 ///
 /// For isochronous/interrupt endpoints, this helps the host allocate
 /// bus bandwidth appropriately.
-class BytesPerInterval {
-  const BytesPerInterval(this.value)
+class const BytesPerInterval(this.value) {
+  /// [value] bytes per interval (0 to 65 535).
+  this
     : assert(
-        value >= 0 && value <= 65535,
+        value >= 0 && value <= 65_535,
         'Bytes per interval must be 0-65535',
       );
 
@@ -792,9 +841,9 @@ class BytesPerInterval {
 /// specify larger transfer sizes that exceed the 16-bit limit. This allows
 /// specifying up to 4 GB per service interval for very high bandwidth
 /// isochronous transfers.
-class ExtendedBytesPerInterval {
-  const ExtendedBytesPerInterval(this.value)
-    : assert(value >= 0, 'Bytes per interval must be non-negative');
+class const ExtendedBytesPerInterval(this.value) {
+  /// [value] bytes per interval.
+  this : assert(value >= 0, 'Bytes per interval must be non-negative');
 
   /// Number of bytes per interval (0-4294967295).
   final int value;
@@ -820,8 +869,9 @@ class ExtendedBytesPerInterval {
 ///
 /// Official VIDs are assigned by the USB Implementers Forum (USB-IF).
 /// Use vendor `0x1234` for testing.
-final class Id {
-  const Id({required this.vendor, required this.product});
+final class const Id({required this.vendor, required this.product}) {
+  /// Vendor and product IDs.
+  this;
 
   /// USB Vendor ID (VID).
   final int vendor;
@@ -851,6 +901,8 @@ final class Id {
 /// final cls = Class.vendorSpecific(0x00, 0x00);
 /// ```
 final class Class {
+  /// A class from [ClassType] with [subClass] and [protocol]; see
+  /// [Class.raw] for codes outside it.
   const Class(ClassType this._type, this.subClass, this.protocol)
     : _rawCode = 0,
       assert(subClass >= 0 && subClass <= 0xFF),
@@ -911,12 +963,14 @@ final class Class {
 ///
 /// bMaxPower specifies the maximum power consumption of the device from the
 /// USB bus.
-final class MaxPower {
+final class const MaxPower(this.milliAmps) {
   /// Creates a MaxPower value from a raw USB bMaxPower value
-  const MaxPower(this.milliAmps) : assert(milliAmps >= 0 && milliAmps <= 510);
+  this : assert(milliAmps >= 0 && milliAmps <= 510);
 
+  /// Maximum current, in milliamps.
   final int milliAmps;
 
+  /// `bMaxPower` for USB 2: [milliAmps] in units of 2 mA.
   int get value => milliAmps ~/ 2;
 
   @override
@@ -927,9 +981,9 @@ final class MaxPower {
 ///
 /// Further refines the device class when used at the device descriptor level
 /// (bDeviceSubClass field). Interpretation depends on the device class.
-final class DeviceSubClass {
-  const DeviceSubClass(this.value)
-    : assert(value >= 0 && value <= 255, 'Device subclass must be 0-255');
+final class const DeviceSubClass(this.value) {
+  /// Device subclass [value] (0 to 255).
+  this : assert(value >= 0 && value <= 255, 'Device subclass must be 0-255');
 
   /// The raw device subclass value (0-255).
   final int value;
@@ -960,9 +1014,9 @@ final class DeviceSubClass {
 /// Specifies the protocol when used at the device descriptor level
 /// (bDeviceProtocol field). Interpretation depends on the device class
 /// and subclass.
-final class DeviceProtocol {
-  const DeviceProtocol(this.value)
-    : assert(value >= 0 && value <= 255, 'Device protocol must be 0-255');
+final class const DeviceProtocol(this.value) {
+  /// Device protocol [value] (0 to 255).
+  this : assert(value >= 0 && value <= 255, 'Device protocol must be 0-255');
 
   /// The raw device protocol value (0-255).
   final int value;
@@ -991,14 +1045,12 @@ final class DeviceProtocol {
 /// USB transfer direction.
 ///
 /// Encoded in bit 7 of bEndpointAddress and bmRequestType.
-enum Direction {
+enum Direction(this.value) {
   /// Host to device (OUT transfer).
   out(0x00),
 
   /// Device to host (IN transfer).
   in_(0x80);
-
-  const Direction(this.value);
 
   /// Extracts direction from bEndpointAddress or bmRequestType.
   factory Direction.fromByte(int byte) =>
@@ -1020,7 +1072,7 @@ enum Direction {
 /// USB endpoint transfer types.
 ///
 /// Encoded in bits 0-1 of bmAttributes.
-enum TransferType {
+enum TransferType(this.value) {
   /// Control transfer (structured, reliable, bidirectional).
   control(0x00),
 
@@ -1032,8 +1084,6 @@ enum TransferType {
 
   /// Interrupt transfer (small, periodic, bounded latency).
   interrupt(0x03);
-
-  const TransferType(this.value);
 
   /// Raw value for bits 0-1 of bmAttributes.
   final int value;
@@ -1047,7 +1097,7 @@ enum TransferType {
 ///
 /// Each device or interface specifies a class, subclass, and protocol
 /// that together define its functionality.
-enum ClassType {
+enum ClassType(this.value) {
   /// Class defined at interface level (bDeviceClass = 0x00).
   ///
   /// When used at device level, indicates that class information is
@@ -1182,8 +1232,6 @@ enum ClassType {
   /// standard USB classes. Requires vendor-specific drivers.
   vendorSpecific(0xFF);
 
-  const ClassType(this.value);
-
   /// Raw class code value.
   final int value;
 
@@ -1200,7 +1248,7 @@ enum ClassType {
 ///
 /// These type codes identify different kinds of USB descriptors
 /// returned by GET_DESCRIPTOR requests.
-enum DescriptorType {
+enum DescriptorType(this.value) {
   /// Device descriptor (0x01).
   device(0x01),
 
@@ -1240,14 +1288,12 @@ enum DescriptorType {
   /// SuperSpeedPlus isochronous endpoint companion descriptor (0x31).
   sspIsocEndpointComp(0x31);
 
-  const DescriptorType(this.value);
-
   /// The raw descriptor type value.
   final int value;
 }
 
 /// USB request types (bits 5-6 of bmRequestType).
-enum RequestType {
+enum RequestType(this.value) {
   /// Standard request (0x00).
   standard(0x00),
 
@@ -1259,8 +1305,6 @@ enum RequestType {
 
   /// Reserved (0x60).
   reserved(0x60);
-
-  const RequestType(this.value);
 
   /// Extracts request type from bmRequestType byte.
   factory RequestType.fromByte(int byte) {
@@ -1282,7 +1326,7 @@ enum RequestType {
 }
 
 /// USB recipients (bits 0-4 of bmRequestType).
-enum Recipient {
+enum Recipient(this.value) {
   /// Device recipient (0x00).
   device(0x00),
 
@@ -1294,8 +1338,6 @@ enum Recipient {
 
   /// Other recipient (0x03).
   other(0x03);
-
-  const Recipient(this.value);
 
   /// Extracts recipient from bmRequestType byte.
   factory Recipient.fromByte(int byte) {
@@ -1317,7 +1359,7 @@ enum Recipient {
 }
 
 /// Standard USB requests.
-enum StandardRequest {
+enum StandardRequest(this.value) {
   /// GET_STATUS (0x00).
   getStatus(0x00),
 
@@ -1351,8 +1393,6 @@ enum StandardRequest {
   /// SYNCH_FRAME (0x0C).
   synchFrame(0x0C);
 
-  const StandardRequest(this.value);
-
   /// Creates a request from its raw value.
   factory StandardRequest.fromByte(int byte) => switch (byte) {
     0x00 => .getStatus,
@@ -1374,7 +1414,7 @@ enum StandardRequest {
 }
 
 /// Standard USB feature selectors.
-enum FeatureSelector {
+enum FeatureSelector(this.value) {
   /// Endpoint halt feature (0x00).
   endpointHalt(0x00),
 
@@ -1388,11 +1428,9 @@ enum FeatureSelector {
   ///
   /// Applied to interface recipients; shares the selector value 0x00
   /// with [endpointHalt], which is applied to endpoint recipients.
-  /// The [fromByte] factory disambiguates by [Recipient]. See USB
+  /// The [FeatureSelector.fromByte] factory disambiguates by [Recipient]. See USB
   /// 2.0 spec §9.4.1.
   functionSuspend(0x00);
-
-  const FeatureSelector(this.value);
 
   /// Creates a feature selector from its raw value and recipient.
   /// Throws ArgumentError if the combination is invalid.

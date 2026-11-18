@@ -51,7 +51,7 @@ const _reportDescriptor = [
 ];
 
 /// The gamepad's state, sent as input reports.
-final class GamepadReport {
+final class GamepadReport() {
   int leftX = 128, leftY = 128, rightX = 128, rightY = 128;
   int buttons = 0; // 12 bits
   int hat = 8; // 0-7 clockwise from north, 8 centered
@@ -68,8 +68,8 @@ final class GamepadReport {
 }
 
 /// A gamepad that moves its sticks in circles and steps its hat around.
-final class Gamepad {
-  Gamepad() {
+final class Gamepad() {
+  this {
     function = CustomFunction([
       CustomInterface(
         const Class(.hid, 0, 0),

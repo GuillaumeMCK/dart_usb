@@ -1,16 +1,20 @@
 import 'dart:async';
 
-import 'package:usb_host/usb_host.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:usb_host/usb_host.dart';
 
 Future<void> main() async {
   final usb = await Usb.initialize();
   runApp(UsbHostExampleApp(usb: usb));
 }
 
-class UsbHostExampleApp extends StatelessWidget {
-  const UsbHostExampleApp({super.key, required this.usb});
+/// The example app.
+class const UsbHostExampleApp({super.key, required this.usb})
+    extends StatelessWidget {
+  /// The example app, showing the devices [usb] finds.
+  this;
 
+  /// Access to the USB devices.
   final Usb usb;
 
   @override
@@ -23,16 +27,19 @@ class UsbHostExampleApp extends StatelessWidget {
 
 /// Lists connected USB devices and keeps the list current with hotplug
 /// events.
-class DeviceListPage extends StatefulWidget {
-  const DeviceListPage({super.key, required this.usb});
+class const DeviceListPage({super.key, required this.usb})
+    extends StatefulWidget {
+  /// The device list, kept current by [usb]
+  this;
 
+  /// Access to the USB devices.
   final Usb usb;
 
   @override
   State<DeviceListPage> createState() => _DeviceListPageState();
 }
 
-class _DeviceListPageState extends State<DeviceListPage> {
+class _DeviceListPageState() extends State<DeviceListPage> {
   final _devices = <DeviceId, DeviceInfo>{};
   StreamSubscription<HotplugEvent>? _events;
   Object? _error;

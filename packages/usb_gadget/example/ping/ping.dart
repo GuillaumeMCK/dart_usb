@@ -46,4 +46,4 @@ Future<void> main() async {
 
 bool _equal(List<int> a, List<int> b) =>
     a.length == b.length &&
-    Iterable.generate(a.length).every((i) => a[i] == b[i]);
+    Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);

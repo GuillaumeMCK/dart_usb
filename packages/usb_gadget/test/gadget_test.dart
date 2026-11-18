@@ -14,9 +14,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:usb_host/usb_host.dart' as host;
 import 'package:test/test.dart';
 import 'package:usb_gadget/usb_gadget.dart';
+import 'package:usb_host/usb_host.dart' as host;
 
 const _id = Id(vendor: 0x1209, product: 0x0001); // pid.codes test ID
 
@@ -427,8 +427,8 @@ Future<List<int>> _roundTrip(
 /// The test gadget's behaviour: echoes bulk data, and answers vendor
 /// requests by number (1 store/load, 2 stall, 3 answer too late, 4 own
 /// interface number, 5 oversized answer, 6 answer twice).
-final class _Echo {
-  _Echo(this.function, this.tx, this.rx) {
+final class _Echo(this.function, this.tx, this.rx) {
+  this {
     _events = function.events.listen(_onEvent);
   }
 
