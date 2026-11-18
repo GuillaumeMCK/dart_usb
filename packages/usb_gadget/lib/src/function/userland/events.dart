@@ -154,16 +154,16 @@ class SetupEvent implements FunctionFsEvent {
   final int wLength;
 
   /// Gets the request type (standard, class, vendor).
-  USBRequestType get requestType => .fromByte(bmRequestType);
+  RequestType get requestType => .fromByte(bmRequestType);
 
   /// Gets the recipient (device, interface, endpoint, other).
-  USBRecipient get recipient => .fromByte(bmRequestType);
+  Recipient get recipient => .fromByte(bmRequestType);
 
   /// Gets the direction (IN or OUT).
-  USBDirection get direction => .fromByte(bmRequestType);
+  Direction get direction => .fromByte(bmRequestType);
 
   /// Gets the standard request type if this is a standard request.
-  USBRequest get standardRequest => .fromByte(bRequest);
+  StandardRequest get standardRequest => .fromByte(bRequest);
 
   @override
   String toString() =>

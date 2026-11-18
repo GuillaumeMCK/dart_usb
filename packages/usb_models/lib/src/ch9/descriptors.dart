@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import '/usb_gadget.dart';
+import '../../usb_models.dart';
 
 /// USB specification version.
 ///
@@ -40,7 +40,7 @@ enum UsbVersion {
 /// - Sublanguage/dialect (high 6 bits)
 ///
 /// These IDs follow the Microsoft Language ID specification used by USB.
-enum USBLanguageId {
+enum LanguageId {
   /// English (United States) - 0x0409
   ///
   /// The most common language ID used in USB devices.
@@ -88,14 +88,14 @@ enum USBLanguageId {
   /// Polish (Poland) - 0x0415
   plPL(0x0415);
 
-  const USBLanguageId(this.value);
+  const LanguageId(this.value);
 
   /// The raw language ID value.
   final int value;
 
   /// Creates a language ID from its raw value, defaulting to [enUS] if not found.
-  static USBLanguageId fromValue(int value, [USBLanguageId orElse = enUS]) =>
-      USBLanguageId.values.firstWhere(
+  static LanguageId fromValue(int value, [LanguageId orElse = enUS]) =>
+      LanguageId.values.firstWhere(
         (lang) => lang.value == value,
         orElse: () => orElse,
       );
@@ -120,7 +120,7 @@ class DescriptorSet {
   /// 4. SuperSpeed companion descriptors (if applicable)
   const DescriptorSet(this.descriptors);
 
-  final List<USBDescriptor> descriptors;
+  final List<Descriptor> descriptors;
 
   int get totalLength => descriptors.fold(0, (sum, desc) => sum + desc.bLength);
 
@@ -155,7 +155,7 @@ class LanguageStrings {
   const LanguageStrings({required this.language, required this.strings});
 
   /// The language ID for these strings.
-  final USBLanguageId language;
+  final LanguageId language;
 
   /// The string values (index 0 = descriptor index 1).
   final List<String> strings;
@@ -200,22 +200,22 @@ abstract class DescriptorGenerator {
   ///
   /// Takes a list of base descriptors and produces speed-specific variants:
   /// - Interface descriptors are copied as-is
-  /// - EndpointDescriptor descriptors are converted to [USBEndpointDescriptor]
+  /// - EndpointTemplate descriptors are converted to [EndpointDescriptor]
   ///   with speed-appropriate packet sizes and intervals
   /// - SuperSpeed endpoints include companion descriptors
   ///
   /// Returns a DescriptorSet ready for use at the specified speed.
   static DescriptorSet generateForSpeed(
-    List<USBDescriptor> baseDescriptors,
+    List<Descriptor> baseDescriptors,
     Speed speed,
   ) {
-    final result = <USBDescriptor>[];
+    final result = <Descriptor>[];
 
     for (final desc in baseDescriptors) {
-      if (desc is EndpointDescriptor) {
+      if (desc is EndpointTemplate) {
         // Generate endpoint descriptor with speed-specific values
         result.add(
-          USBEndpointDescriptor(
+          EndpointDescriptor(
             address: desc.address,
             attributes: EndpointAttributes.from(
               desc.config.transferType,
@@ -235,7 +235,7 @@ abstract class DescriptorGenerator {
 
         // Add SuperSpeed companion descriptor if needed
         if (speed.isSuperSpeed) {
-          result.add(const USBSSEPCompDescriptor());
+          result.add(const SuperSpeedEndpointCompanionDescriptor());
         }
       } else {
         // Copy other descriptors as-is (interfaces, class-specific, etc.)
@@ -255,13 +255,13 @@ abstract class DescriptorGenerator {
 ///
 /// This abstract class defines the interface that all descriptor
 /// implementations must provide.
-abstract class USBDescriptor {
+abstract class Descriptor {
   /// Wraps a raw descriptor blob.
   ///
   /// Use this to supply pre-built descriptors without needing explicit
   /// Dart structures. The first byte must contain the descriptor length,
   /// and the second byte must contain the descriptor type.
-  factory USBDescriptor.raw(List<int> bytes) = RawUSBDescriptor;
+  factory Descriptor.raw(List<int> bytes) = RawDescriptor;
 
   /// Length of the descriptor in bytes.
   ///
@@ -272,7 +272,7 @@ abstract class USBDescriptor {
   /// Type of the descriptor.
   ///
   /// Identifies what kind of descriptor this is (device, configuration,
-  /// interface, endpoint, etc.). See [USBDescriptorType] for standard types.
+  /// interface, endpoint, etc.). See [DescriptorType] for standard types.
   int get bDescriptorType;
 
   /// Serializes the descriptor to bytes.
@@ -284,8 +284,8 @@ abstract class USBDescriptor {
 }
 
 /// Raw USB descriptor wrapper.
-class RawUSBDescriptor implements USBDescriptor {
-  RawUSBDescriptor(List<int> bytes)
+class RawDescriptor implements Descriptor {
+  RawDescriptor(List<int> bytes)
     : assert(bytes.length >= 2, 'Descriptor data must be at least 2 bytes'),
       _data = Uint8List.fromList(bytes);
 
@@ -307,7 +307,7 @@ class RawUSBDescriptor implements USBDescriptor {
 /// within a USB device configuration. An interface represents a single function
 /// (like mass storage, audio input, etc.) and can have multiple alternate
 /// settings to provide different bandwidth or endpoint configurations.
-class USBInterfaceDescriptor implements USBDescriptor {
+class InterfaceDescriptor implements Descriptor {
   /// Creates a USB interface descriptor.
   ///
   /// Parameters:
@@ -316,7 +316,7 @@ class USBInterfaceDescriptor implements USBDescriptor {
   /// - [numEndpoints]: Number of endpoints excluding EP0 (required)
   /// - [class_]: Class code (required, use [ClassType] enum)
   /// - [stringIndex]: String descriptor index (default: none)
-  const USBInterfaceDescriptor({
+  const InterfaceDescriptor({
     required this.interfaceNumber,
     this.alternateSetting = AlternateSetting.default_,
     required this.numEndpoints,
@@ -328,7 +328,7 @@ class USBInterfaceDescriptor implements USBDescriptor {
   int get bLength => 9;
 
   @override
-  int get bDescriptorType => USBDescriptorType.interface.value;
+  int get bDescriptorType => DescriptorType.interface.value;
 
   /// Interface number.
   ///
@@ -380,7 +380,7 @@ class USBInterfaceDescriptor implements USBDescriptor {
 /// By default this produces a standard 7-byte descriptor (`bLength = 7`).
 /// When [bRefresh] or [bSynchAddress] are non-zero (USB Audio Class usage),
 /// `bLength` becomes 9 to include those extra fields.
-class USBEndpointDescriptor implements USBDescriptor {
+class EndpointDescriptor implements Descriptor {
   /// Creates a USB endpoint descriptor.
   ///
   /// Parameters:
@@ -390,7 +390,7 @@ class USBEndpointDescriptor implements USBDescriptor {
   /// - [interval]: Polling interval (default: none)
   /// - [bRefresh]: Audio refresh rate (default: 0, non-audio endpoints)
   /// - [bSynchAddress]: Audio sync endpoint address (default: 0, non-audio endpoints)
-  const USBEndpointDescriptor({
+  const EndpointDescriptor({
     required this.address,
     required this.attributes,
     required this.maxPacketSize,
@@ -430,7 +430,7 @@ class USBEndpointDescriptor implements USBDescriptor {
   int get bLength => (bRefresh != 0 || bSynchAddress != 0) ? 9 : 7;
 
   @override
-  int get bDescriptorType => USBDescriptorType.endpoint.value;
+  int get bDescriptorType => DescriptorType.endpoint.value;
 
   @override
   Uint8List toBytes() {
@@ -455,16 +455,16 @@ class USBEndpointDescriptor implements USBDescriptor {
 /// Provides additional information for SuperSpeed endpoints. Required for all
 /// endpoints when operating at SuperSpeed (5 Gbps). This descriptor immediately
 /// follows the endpoint descriptor it describes.
-class USBSSEPCompDescriptor implements USBDescriptor {
+class SuperSpeedEndpointCompanionDescriptor implements Descriptor {
   /// Creates a SuperSpeed endpoint companion descriptor.
   ///
   /// Parameters:
   /// - [maxBurst]: Maximum burst size (default: single packet)
   /// - [attributes]: Endpoint-specific attributes (default: interrupt/control)
   /// - [bytesPerInterval]: Bytes per interval (default: none)
-  const USBSSEPCompDescriptor({
+  const SuperSpeedEndpointCompanionDescriptor({
     this.maxBurst = BurstSize.single,
-    this.attributes = const SSEndpointAttributes.interrupt(),
+    this.attributes = const SuperSpeedEndpointAttributes.interrupt(),
     this.bytesPerInterval = BytesPerInterval.none,
   });
 
@@ -472,7 +472,7 @@ class USBSSEPCompDescriptor implements USBDescriptor {
   int get bLength => 6;
 
   @override
-  int get bDescriptorType => USBDescriptorType.ssEndpointComp.value;
+  int get bDescriptorType => DescriptorType.ssEndpointComp.value;
 
   /// Maximum number of packets per burst.
   final BurstSize maxBurst;
@@ -482,7 +482,7 @@ class USBSSEPCompDescriptor implements USBDescriptor {
   /// For bulk: stream support
   /// For isochronous: mult (packets per interval)
   /// For interrupt/control: reserved (0)
-  final SSEndpointAttributes attributes;
+  final SuperSpeedEndpointAttributes attributes;
 
   /// Total bytes per service interval.
   final BytesPerInterval bytesPerInterval;
@@ -513,13 +513,13 @@ class USBSSEPCompDescriptor implements USBDescriptor {
 /// Provides additional information for SuperSpeedPlus isochronous endpoints.
 /// Used when operating at SuperSpeedPlus speeds (10+ Gbps) with isochronous
 /// transfer type.
-class USBSSPIsocEndpointDescriptor implements USBDescriptor {
+class SuperSpeedPlusIsocCompanionDescriptor implements Descriptor {
   /// Creates a SuperSpeedPlus isochronous endpoint companion descriptor.
   ///
   /// Parameters:
   /// - [wReserved]: Reserved field (default: 0)
   /// - [bytesPerInterval]: Extended bytes per interval (required)
-  const USBSSPIsocEndpointDescriptor({
+  const SuperSpeedPlusIsocCompanionDescriptor({
     this.wReserved = 0,
     required this.bytesPerInterval,
   });
@@ -528,7 +528,7 @@ class USBSSPIsocEndpointDescriptor implements USBDescriptor {
   int get bLength => 8;
 
   @override
-  int get bDescriptorType => USBDescriptorType.sspIsocEndpointComp.value;
+  int get bDescriptorType => DescriptorType.sspIsocEndpointComp.value;
 
   /// Reserved field, must be 0.
   final int wReserved;
@@ -560,7 +560,7 @@ class USBSSPIsocEndpointDescriptor implements USBDescriptor {
 /// single device driver to manage multiple related interfaces. Commonly used
 /// by composite devices like USB webcams (video + audio interfaces) or
 /// multi-function peripherals.
-class USBInterfaceAssocDescriptor implements USBDescriptor {
+class InterfaceAssociationDescriptor implements Descriptor {
   /// Creates an interface association descriptor.
   ///
   /// Parameters:
@@ -570,7 +570,7 @@ class USBInterfaceAssocDescriptor implements USBDescriptor {
   /// - [functionSubClass]: Function subclass (default: 0)
   /// - [functionProtocol]: Function protocol (default: 0)
   /// - [functionString]: String descriptor index (default: none)
-  const USBInterfaceAssocDescriptor({
+  const InterfaceAssociationDescriptor({
     required this.firstInterface,
     required this.interfaceCount,
     required this.functionClass,
@@ -583,7 +583,7 @@ class USBInterfaceAssocDescriptor implements USBDescriptor {
   int get bLength => 8;
 
   @override
-  int get bDescriptorType => USBDescriptorType.interfaceAssociation.value;
+  int get bDescriptorType => DescriptorType.interfaceAssociation.value;
 
   /// Interface number of the first interface in the function.
   ///
@@ -847,13 +847,13 @@ final class IsochronousEndpointConfig extends EndpointConfig {
 ///
 /// Use [DescriptorGenerator.generateForSpeed()] to convert this template
 /// into actual endpoint descriptors appropriate for a specific USB speed.
-class EndpointDescriptor implements USBDescriptor {
+class EndpointTemplate implements Descriptor {
   /// Creates an endpoint template.
   ///
   /// Parameters:
   /// - [address]: Endpoint address with direction (required)
   /// - [config]: Endpoint configuration (required)
-  const EndpointDescriptor({required this.address, required this.config});
+  const EndpointTemplate({required this.address, required this.config});
 
   /// Endpoint address (number and direction).
   final EndpointAddress address;
@@ -865,12 +865,12 @@ class EndpointDescriptor implements USBDescriptor {
   int get bLength => 7;
 
   @override
-  int get bDescriptorType => USBDescriptorType.endpoint.value;
+  int get bDescriptorType => DescriptorType.endpoint.value;
 
   @override
   Uint8List toBytes() {
     throw UnsupportedError(
-      'EndpointDescriptor must be converted to speed-specific descriptor '
+      'EndpointTemplate must be converted to speed-specific descriptor '
       'using DescriptorGenerator.generateForSpeed()',
     );
   }

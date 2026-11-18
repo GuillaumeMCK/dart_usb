@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '/usb_gadget.dart';
+import '../../usb_models.dart';
 
 /// USB HID Descriptor.
 ///
@@ -13,7 +13,7 @@ import '/usb_gadget.dart';
 /// - Country code (for localization)
 /// - Number and types of subordinate descriptors
 /// - Lengths of subordinate descriptors
-final class HIDDescriptor implements USBDescriptor {
+final class HidDescriptor implements Descriptor {
   /// Creates a HID descriptor.
   ///
   /// Parameters:
@@ -21,7 +21,7 @@ final class HIDDescriptor implements USBDescriptor {
   /// - [countryCode]: Hardware target country code (default: 0, not localized)
   /// - [reportLength]: Length of report descriptor in bytes (required)
   /// - [physicalDescriptorLength]: Length of physical descriptor (default: 0, not used)
-  const HIDDescriptor({
+  const HidDescriptor({
     this.hidVersion = 0x0111,
     this.countryCode = 0x00,
     required this.reportLength,
@@ -35,7 +35,7 @@ final class HIDDescriptor implements USBDescriptor {
   int get bLength => physicalDescriptorLength > 0 ? 12 : 9;
 
   @override
-  int get bDescriptorType => HIDDescriptorType.hid.value;
+  int get bDescriptorType => HidDescriptorType.hid.value;
 
   /// HID specification release number in BCD.
   ///
@@ -76,10 +76,10 @@ final class HIDDescriptor implements USBDescriptor {
   int get numDescriptors => physicalDescriptorLength > 0 ? 2 : 1;
 
   /// BCD version major number.
-  int get majorVersion => hidVersion.byte(1);
+  int get majorVersion => (hidVersion >> 8) & 0xff;
 
   /// BCD version minor number.
-  int get minorVersion => hidVersion.byte(0);
+  int get minorVersion => hidVersion & 0xff;
 
   @override
   Uint8List toBytes() {
@@ -90,12 +90,12 @@ final class HIDDescriptor implements USBDescriptor {
       ..setUint8(4, countryCode)
       ..setUint8(5, numDescriptors)
       // First subordinate descriptor (report descriptor)
-      ..setUint8(6, HIDDescriptorType.report.value)
+      ..setUint8(6, HidDescriptorType.report.value)
       ..setUint16(7, reportLength, .little);
     if (physicalDescriptorLength > 0) {
       // Second subordinate descriptor (physical descriptor)
       bytes
-        ..setUint8(9, HIDDescriptorType.physical.value)
+        ..setUint8(9, HidDescriptorType.physical.value)
         ..setUint16(10, physicalDescriptorLength, .little);
     }
     return bytes.buffer.asUint8List();
@@ -103,5 +103,5 @@ final class HIDDescriptor implements USBDescriptor {
 
   @override
   String toString() =>
-      'HIDDescriptor(HID $majorVersion.$minorVersion, reportLen=$reportLength)';
+      'HidDescriptor(HID $majorVersion.$minorVersion, reportLen=$reportLength)';
 }

@@ -60,7 +60,7 @@ and this project adheres to [Semantic Versioning].
 - Rename `ffs` module to `userland`
 - Rename `GadgetFunctionType` to `FunctionType`
 - Rename `USBDeviceState` to `DeviceState`
-- Rename `USBHIDDescriptor` to `HIDDescriptor`
+- Rename `USBHIDDescriptor` to `HidDescriptor`
 - Remove legacy `USBSpeed` typedef
 - Overhaul gadget and configuration management
 - Delegate UDC state management and simplify Gadget API

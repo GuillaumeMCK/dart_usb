@@ -7,7 +7,7 @@ Gadget kernelTestGadget(String name, GadgetFunction fn) => Gadget(
   name: name,
   id: const Id(vendor: 0x1234, product: 0xFFFF),
   strings: {
-    USBLanguageId.enUS: const GadgetStrings(
+    LanguageId.enUS: const GadgetStrings(
       manufacturer: 'Test',
       product: 'Kernel Function Test',
       serialnumber: 'KFT-001',

@@ -44,7 +44,7 @@ final class Gadget with USBGadgetLogger {
     required this.id,
     this.class_ = const Class.interfaceSpecific(),
     this.configs = const [],
-    Map<USBLanguageId, GadgetStrings>? strings,
+    Map<LanguageId, GadgetStrings>? strings,
     this.name,
     this.deviceRelease = 0x0000,
     this.usbVersion = .v20,
@@ -85,7 +85,7 @@ final class Gadget with USBGadgetLogger {
   final UsbVersion usbVersion;
 
   /// String descriptors indexed by language ID.
-  final Map<USBLanguageId, GadgetStrings> strings;
+  final Map<LanguageId, GadgetStrings> strings;
 
   /// USB configurations. At least one is required before calling [register] or [RegGadget.bind].
   final List<Config> configs;
@@ -202,7 +202,7 @@ final class Gadget with USBGadgetLogger {
 
         // Write default description for default language, then any overrides.
         final allStrings = {
-          USBLanguageId.enUS: config.description,
+          LanguageId.enUS: config.description,
           ...config.strings,
         };
         for (final MapEntry(:key, :value) in allStrings.entries) {

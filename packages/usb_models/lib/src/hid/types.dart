@@ -1,11 +1,11 @@
-import '../usb.dart';
+import '../../usb_models.dart';
 
 /// HID class-specific request codes (bRequest).
 ///
 /// These request codes are used in control transfers to configure and
 /// control HID devices. They extend the standard USB requests with
 /// HID-specific operations.
-enum HIDRequest {
+enum HidRequest {
   /// GET_REPORT (0x01).
   ///
   /// Retrieves a report from the device. Used to read the current state
@@ -73,17 +73,17 @@ enum HIDRequest {
   /// wLength: 0
   setProtocol(0x0B);
 
-  const HIDRequest(this.value);
+  const HidRequest(this.value);
 
   /// Creates a request from its raw value.
-  factory HIDRequest.fromByte(int byte) => switch (byte) {
+  factory HidRequest.fromByte(int byte) => switch (byte) {
     0x01 => .getReport,
     0x02 => .getIdle,
     0x03 => .getProtocol,
     0x09 => .setReport,
     0x0A => .setIdle,
     0x0B => .setProtocol,
-    _ => throw Exception('Unknown HIDRequest'),
+    _ => throw Exception('Unknown HidRequest'),
   };
 
   /// Raw request code value.
@@ -94,7 +94,7 @@ enum HIDRequest {
 ///
 /// These type codes identify different kinds of HID-specific descriptors.
 /// They are used in addition to the standard USB descriptor types.
-enum HIDDescriptorType {
+enum HidDescriptorType {
   /// HID descriptor (0x21).
   ///
   /// The main HID descriptor that follows the interface descriptor.
@@ -116,14 +116,14 @@ enum HIDDescriptorType {
   physical(0x23);
 
   /// Creates a HID descriptor type.
-  const HIDDescriptorType(this.value);
+  const HidDescriptorType(this.value);
 
   /// Creates a descriptor type from its raw value.
-  factory HIDDescriptorType.fromByte(int byte) => switch (byte) {
+  factory HidDescriptorType.fromByte(int byte) => switch (byte) {
     0x21 => .hid,
     0x22 => .report,
     0x23 => .physical,
-    _ => throw Exception('Unknown HIDDescriptorType'),
+    _ => throw Exception('Unknown HidDescriptorType'),
   };
 
   /// Raw descriptor type value.
@@ -131,7 +131,7 @@ enum HIDDescriptorType {
 }
 
 /// HID report types.
-enum HIDReportType {
+enum HidReportType {
   /// Input report (1).
   input(1),
 
@@ -142,14 +142,14 @@ enum HIDReportType {
   feature(3);
 
   /// Creates a HID report type.
-  const HIDReportType(this.value);
+  const HidReportType(this.value);
 
   /// Creates a report type from its raw value.
-  factory HIDReportType.fromByte(int byte) => switch (byte) {
+  factory HidReportType.fromByte(int byte) => switch (byte) {
     1 => .input,
     2 => .output,
     3 => .feature,
-    _ => throw Exception('Unknown HIDReportType $byte'),
+    _ => throw Exception('Unknown HidReportType $byte'),
   };
 
   final int value;
@@ -158,32 +158,32 @@ enum HIDReportType {
 /// Configuration for HID endpoint topology and parameters.
 ///
 /// This is a sealed class — only the built-in factory constructors may be used:
-/// - [HIDEndpointConfig.inputOnly] (keyboard, mouse)
-/// - [HIDEndpointConfig.bidirectional] (game controllers, custom devices)
-/// - [HIDEndpointConfig.outputOnly] (LED controllers, rare)
-sealed class HIDEndpointConfig {
-  const HIDEndpointConfig({
+/// - [HidEndpointConfig.inputOnly] (keyboard, mouse)
+/// - [HidEndpointConfig.bidirectional] (game controllers, custom devices)
+/// - [HidEndpointConfig.outputOnly] (LED controllers, rare)
+sealed class HidEndpointConfig {
+  const HidEndpointConfig({
     required this.maxPacketSize,
     this.pollInterval = const Duration(milliseconds: 8),
     this.reportInterval = const Duration(milliseconds: 8),
   });
 
   /// Creates an output-only HID configuration (single OUT endpoint).
-  const factory HIDEndpointConfig.outputOnly({
+  const factory HidEndpointConfig.outputOnly({
     Duration pollInterval,
     int maxPacketSize,
     EndpointNumber endpointNumber,
   }) = _OutputOnlyEndpointConfig;
 
   /// Creates an input-only HID configuration (single IN endpoint).
-  const factory HIDEndpointConfig.inputOnly({
+  const factory HidEndpointConfig.inputOnly({
     Duration reportInterval,
     int maxPacketSize,
     EndpointNumber endpointNumber,
   }) = _InputOnlyEndpointConfig;
 
   /// Creates a bidirectional HID configuration (IN + OUT endpoints).
-  const factory HIDEndpointConfig.bidirectional({
+  const factory HidEndpointConfig.bidirectional({
     Duration pollInterval,
     Duration reportInterval,
     int maxPacketSize,
@@ -204,7 +204,7 @@ sealed class HIDEndpointConfig {
   int get numEndpoints;
 
   /// Generates the descriptor list for this endpoint configuration.
-  List<USBDescriptor> get descriptors;
+  List<Descriptor> get descriptors;
 
   /// Whether this config has an IN endpoint.
   bool get hasInputEndpoint;
@@ -220,7 +220,7 @@ sealed class HIDEndpointConfig {
 }
 
 /// Input-only HID configuration (IN endpoint only).
-final class _InputOnlyEndpointConfig extends HIDEndpointConfig {
+final class _InputOnlyEndpointConfig extends HidEndpointConfig {
   const _InputOnlyEndpointConfig({
     super.reportInterval = const Duration(milliseconds: 10),
     super.maxPacketSize = 64,
@@ -242,8 +242,8 @@ final class _InputOnlyEndpointConfig extends HIDEndpointConfig {
   EndpointNumber get inEndpointNumber => endpointNumber;
 
   @override
-  List<USBDescriptor> get descriptors => [
-    EndpointDescriptor(
+  List<Descriptor> get descriptors => [
+    EndpointTemplate(
       address: .in_(endpointNumber),
       config: .interrupt(
         interval: reportInterval,
@@ -254,7 +254,7 @@ final class _InputOnlyEndpointConfig extends HIDEndpointConfig {
 }
 
 /// Bidirectional HID configuration (IN + OUT endpoints).
-final class _BidirectionalEndpointConfig extends HIDEndpointConfig {
+final class _BidirectionalEndpointConfig extends HidEndpointConfig {
   const _BidirectionalEndpointConfig({
     super.pollInterval = const Duration(milliseconds: 10),
     super.reportInterval = const Duration(milliseconds: 10),
@@ -279,15 +279,15 @@ final class _BidirectionalEndpointConfig extends HIDEndpointConfig {
   bool get hasOutputEndpoint => true;
 
   @override
-  List<USBDescriptor> get descriptors => [
-    EndpointDescriptor(
+  List<Descriptor> get descriptors => [
+    EndpointTemplate(
       address: .in_(inEndpointNumber),
       config: .interrupt(
         interval: reportInterval,
         maxPacketSize: maxPacketSize,
       ),
     ),
-    EndpointDescriptor(
+    EndpointTemplate(
       address: .out(outEndpointNumber),
       config: .interrupt(interval: pollInterval, maxPacketSize: maxPacketSize),
     ),
@@ -295,7 +295,7 @@ final class _BidirectionalEndpointConfig extends HIDEndpointConfig {
 }
 
 /// Output-only HID configuration (OUT endpoint only).
-final class _OutputOnlyEndpointConfig extends HIDEndpointConfig {
+final class _OutputOnlyEndpointConfig extends HidEndpointConfig {
   const _OutputOnlyEndpointConfig({
     super.pollInterval = const Duration(milliseconds: 10),
     super.maxPacketSize = 64,
@@ -317,8 +317,8 @@ final class _OutputOnlyEndpointConfig extends HIDEndpointConfig {
   EndpointNumber get outEndpointNumber => endpointNumber;
 
   @override
-  List<USBDescriptor> get descriptors => [
-    EndpointDescriptor(
+  List<Descriptor> get descriptors => [
+    EndpointTemplate(
       address: .out(endpointNumber),
       config: .interrupt(interval: pollInterval, maxPacketSize: maxPacketSize),
     ),

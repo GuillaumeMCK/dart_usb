@@ -9,7 +9,7 @@ import 'descriptors.dart';
 ///
 /// Groups a set of endpoints under a single USB interface descriptor.
 /// When passed to [FunctionFs], the interface descriptor is synthesized
-/// automatically — the caller never constructs [USBInterfaceDescriptor]
+/// automatically — the caller never constructs [InterfaceDescriptor]
 /// directly.
 ///
 /// ## Usage
@@ -49,11 +49,11 @@ class FunctionFsInterface {
   final int subClass;
   final int protocol;
   final String? name;
-  final List<EndpointDescriptor> endpoints;
+  final List<EndpointTemplate> endpoints;
 
   /// Create a list of descriptors for this interface.
-  List<USBDescriptor> get descriptors => [
-    USBInterfaceDescriptor(
+  List<Descriptor> get descriptors => [
+    InterfaceDescriptor(
       interfaceNumber: interfaceNumber,
       numEndpoints: .new(endpoints.length),
       class_: class_,
@@ -98,7 +98,7 @@ enum FunctionFsState {
 /// ## Defining the function
 ///
 /// Pass one or more [FunctionFsInterface] instances to [interfaces]. Each
-/// interface synthesizes its own [USBInterfaceDescriptor] followed by its
+/// interface synthesizes its own [InterfaceDescriptor] followed by its
 /// endpoint descriptors. The flat descriptor list written to EP0 is built
 /// automatically — do not construct it by hand.
 ///
@@ -158,13 +158,13 @@ class FunctionFs extends GadgetFunction with USBGadgetLogger {
   FunctionType get type => .ffs;
 
   /// Base descriptor templates that will be generated for each speed.
-  final List<USBDescriptor> descriptors;
+  final List<Descriptor> descriptors;
 
   /// USB speeds to generate descriptors for.
   final Set<Speed> speeds;
 
   /// String descriptors indexed by language ID (e.g., 0x0409 for en-US)
-  final Map<USBLanguageId, List<String>> strings;
+  final Map<LanguageId, List<String>> strings;
 
   /// FunctionFs configuration flags
   final FunctionFsFlags flags;
@@ -356,7 +356,7 @@ class FunctionFs extends GadgetFunction with USBGadgetLogger {
   /// Opens all endpoint files after descriptors have been written to EP0.
   ///
   /// FunctionFS uses sequential endpoint numbering: ep1, ep2, ep3, etc.
-  /// The order matches the order of EndpointDescriptor descriptors.
+  /// The order matches the order of EndpointTemplate descriptors.
   ///
   /// If any endpoint fails to open, all previously opened endpoints are closed
   /// and the error is propagated.
@@ -366,7 +366,7 @@ class FunctionFs extends GadgetFunction with USBGadgetLogger {
 
     try {
       for (final desc in descriptors) {
-        if (desc is! EndpointDescriptor) continue;
+        if (desc is! EndpointTemplate) continue;
 
         final epPath = '$_mountPoint/ep$index';
         final endpoint = switch (desc.address.direction) {
@@ -512,10 +512,10 @@ class FunctionFs extends GadgetFunction with USBGadgetLogger {
       'wLength=${wLength.toHex()}',
     );
 
-    final recipient = USBRecipient.fromByte(bmRequestType);
-    final type = USBRequestType.fromByte(bmRequestType);
-    final direction = USBDirection.fromByte(bmRequestType);
-    final request = USBRequest.fromByte(bRequest);
+    final recipient = Recipient.fromByte(bmRequestType);
+    final type = RequestType.fromByte(bmRequestType);
+    final direction = Direction.fromByte(bmRequestType);
+    final request = StandardRequest.fromByte(bRequest);
 
     // Only handle standard requests here
     if (type != .standard) {
@@ -523,11 +523,11 @@ class FunctionFs extends GadgetFunction with USBGadgetLogger {
     }
 
     // Feature/endpoint helpers (only needed for a subset of requests)
-    USBFeature? feature;
+    FeatureSelector? feature;
     EndpointAddress? address;
 
     if (request == .setFeature || request == .clearFeature) {
-      feature = USBFeature.fromByte(wValue.byte(0), recipient);
+      feature = FeatureSelector.fromByte(wValue.byte(0), recipient);
     }
 
     if (recipient == .endpoint) {

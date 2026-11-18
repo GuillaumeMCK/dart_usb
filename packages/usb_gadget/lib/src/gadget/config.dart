@@ -1,5 +1,4 @@
 import '/usb_gadget.dart';
-export '/src/usb/usb.dart' show UsbVersion;
 
 /// USB gadget configuration containing functions and attributes.
 ///
@@ -54,7 +53,7 @@ final class Config {
   final bool remoteWakeup;
 
   /// Per-language configuration description overrides.
-  final Map<USBLanguageId, String> strings;
+  final Map<LanguageId, String> strings;
 
   /// Configuration index (1-based).
   final int index;

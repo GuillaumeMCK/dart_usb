@@ -1,4 +1,4 @@
-import '/usb_gadget.dart';
+import '../../usb_models.dart';
 
 /// Endpoint number (0-15).
 ///
@@ -71,14 +71,14 @@ class EndpointAddress {
   /// Extracts the endpoint number (bits 0-3) and direction (bit 7).
   factory EndpointAddress.fromByte(int byte) => EndpointAddress(
     EndpointNumber.fromByte(byte),
-    USBDirection.fromByte(byte),
+    Direction.fromByte(byte),
   );
 
   /// The endpoint number (0-15).
   final EndpointNumber number;
 
   /// The transfer direction (IN or OUT).
-  final USBDirection direction;
+  final Direction direction;
 
   /// Converts to a bEndpointAddress byte value.
   ///
@@ -705,12 +705,12 @@ final class BurstSize {
 /// - Bulk endpoints: Bits 0-4 specify max streams (0-31)
 /// - Isochronous endpoints: Bits 0-1 specify mult (0-2)
 /// - Interrupt/Control endpoints: Reserved, must be 0
-final class SSEndpointAttributes {
+final class SuperSpeedEndpointAttributes {
   /// Bulk endpoint attributes.
   ///
   /// [streams] specifies the maximum number of bulk streams supported.
   /// Value 0-31 represents the maximum stream ID (2^streams supported).
-  const SSEndpointAttributes.bulk({int streams = 0})
+  const SuperSpeedEndpointAttributes.bulk({int streams = 0})
     : assert(streams >= 0 && streams <= 31, 'Streams must be 0-31'),
       value = streams;
 
@@ -718,27 +718,27 @@ final class SSEndpointAttributes {
   ///
   /// [mult] specifies packets per service interval (0-2).
   /// Actual packets = mult + 1.
-  const SSEndpointAttributes.isochronous({required int mult})
+  const SuperSpeedEndpointAttributes.isochronous({required int mult})
     : assert(mult >= 0 && mult <= 2, 'Mult must be 0-2'),
       value = mult;
 
   /// Interrupt endpoint attributes.
   ///
   /// No additional attributes for interrupt endpoints.
-  const SSEndpointAttributes.interrupt() : value = 0;
+  const SuperSpeedEndpointAttributes.interrupt() : value = 0;
 
   /// The final bmAttributes field value.
   final int value;
 
   @override
   bool operator ==(Object other) =>
-      other is SSEndpointAttributes && other.value == value;
+      other is SuperSpeedEndpointAttributes && other.value == value;
 
   @override
   int get hashCode => value.hashCode;
 
   @override
-  String toString() => 'SSEndpointAttributes(0x${value.toRadixString(16)})';
+  String toString() => 'SuperSpeedEndpointAttributes(0x${value.toRadixString(16)})';
 }
 
 /// Type-safe bytes per interval (0-65535).
@@ -939,17 +939,17 @@ final class DeviceProtocol {
 /// USB transfer direction.
 ///
 /// Encoded in bit 7 of bEndpointAddress and bmRequestType.
-enum USBDirection {
+enum Direction {
   /// Host to device (OUT transfer).
   out(0x00),
 
   /// Device to host (IN transfer).
   in_(0x80);
 
-  const USBDirection(this.value);
+  const Direction(this.value);
 
   /// Extracts direction from bEndpointAddress or bmRequestType.
-  factory USBDirection.fromByte(int byte) =>
+  factory Direction.fromByte(int byte) =>
       (byte & mask) == in_.value ? in_ : out;
 
   /// Raw value for bit 7.
@@ -1140,7 +1140,7 @@ enum ClassType {
 ///
 /// These type codes identify different kinds of USB descriptors
 /// returned by GET_DESCRIPTOR requests.
-enum USBDescriptorType {
+enum DescriptorType {
   /// Device descriptor (0x01).
   device(0x01),
 
@@ -1180,14 +1180,14 @@ enum USBDescriptorType {
   /// SuperSpeedPlus isochronous endpoint companion descriptor (0x31).
   sspIsocEndpointComp(0x31);
 
-  const USBDescriptorType(this.value);
+  const DescriptorType(this.value);
 
   /// The raw descriptor type value.
   final int value;
 }
 
 /// USB request types (bits 5-6 of bmRequestType).
-enum USBRequestType {
+enum RequestType {
   /// Standard request (0x00).
   standard(0x00),
 
@@ -1200,10 +1200,10 @@ enum USBRequestType {
   /// Reserved (0x60).
   reserved(0x60);
 
-  const USBRequestType(this.value);
+  const RequestType(this.value);
 
   /// Extracts request type from bmRequestType byte.
-  factory USBRequestType.fromByte(int byte) {
+  factory RequestType.fromByte(int byte) {
     final masked = byte & mask;
     return switch (masked) {
       0x00 => standard,
@@ -1222,7 +1222,7 @@ enum USBRequestType {
 }
 
 /// USB recipients (bits 0-4 of bmRequestType).
-enum USBRecipient {
+enum Recipient {
   /// Device recipient (0x00).
   device(0x00),
 
@@ -1235,10 +1235,10 @@ enum USBRecipient {
   /// Other recipient (0x03).
   other(0x03);
 
-  const USBRecipient(this.value);
+  const Recipient(this.value);
 
   /// Extracts recipient from bmRequestType byte.
-  factory USBRecipient.fromByte(int byte) {
+  factory Recipient.fromByte(int byte) {
     final masked = byte & mask;
     return switch (masked) {
       0x00 => device,
@@ -1257,7 +1257,7 @@ enum USBRecipient {
 }
 
 /// Standard USB requests.
-enum USBRequest {
+enum StandardRequest {
   /// GET_STATUS (0x00).
   getStatus(0x00),
 
@@ -1291,10 +1291,10 @@ enum USBRequest {
   /// SYNCH_FRAME (0x0C).
   synchFrame(0x0C);
 
-  const USBRequest(this.value);
+  const StandardRequest(this.value);
 
   /// Creates a request from its raw value.
-  factory USBRequest.fromByte(int byte) => switch (byte) {
+  factory StandardRequest.fromByte(int byte) => switch (byte) {
     0x00 => .getStatus,
     0x01 => .clearFeature,
     0x03 => .setFeature,
@@ -1314,7 +1314,7 @@ enum USBRequest {
 }
 
 /// Standard USB feature selectors.
-enum USBFeature {
+enum FeatureSelector {
   /// Endpoint halt feature (0x00).
   endpointHalt(0x00),
 
@@ -1328,15 +1328,15 @@ enum USBFeature {
   ///
   /// Applied to interface recipients; shares the selector value 0x00
   /// with [endpointHalt], which is applied to endpoint recipients.
-  /// The [fromByte] factory disambiguates by [USBRecipient]. See USB
+  /// The [fromByte] factory disambiguates by [Recipient]. See USB
   /// 2.0 spec §9.4.1.
   functionSuspend(0x00);
 
-  const USBFeature(this.value);
+  const FeatureSelector(this.value);
 
   /// Creates a feature selector from its raw value and recipient.
   /// Throws ArgumentError if the combination is invalid.
-  factory USBFeature.fromByte(int byte, USBRecipient recipient) =>
+  factory FeatureSelector.fromByte(int byte, Recipient recipient) =>
       switch (recipient) {
         .endpoint when byte == 0x00 => .endpointHalt,
         .interface when byte == 0x00 => .functionSuspend,

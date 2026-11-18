@@ -24,8 +24,8 @@ class EchoFunction extends FunctionFs {
             class_: .interfaceSpecific(),
             interfaceNumber: .interface0,
             endpoints: [
-              const EndpointDescriptor(address: .in_(.ep1), config: .bulk()),
-              const EndpointDescriptor(address: .out(.ep2), config: .bulk()),
+              const EndpointTemplate(address: .in_(.ep1), config: .bulk()),
+              const EndpointTemplate(address: .out(.ep2), config: .bulk()),
             ],
           ),
         ],
