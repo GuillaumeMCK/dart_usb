@@ -1,5 +1,5 @@
 // End to end: registers gadgets on a virtual controller and talks to them
-// from the host side with dusb, all on one Linux machine.
+// from the host side with usb_host, all on one Linux machine.
 //
 // Needs root, configfs and the dummy_hcd module:
 //
@@ -14,7 +14,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:dusb/dusb.dart' as host;
+import 'package:usb_host/usb_host.dart' as host;
 import 'package:test/test.dart';
 import 'package:usb_gadget/usb_gadget.dart';
 

@@ -12,7 +12,7 @@ build hooks: configfs setup and FunctionFS I/O (with the kernel's
 asynchronous I/O, several transfers in flight) run in Rust, while gadgets,
 functions and control requests are plain Dart. USB types and descriptors
 come from [`usb_models`](../usb_models) (re-exported), shared with the
-host-side [`dusb`](../dusb).
+host-side [`usb_host`](../usb_host).
 
 Boards with a UDC include the Raspberry Pi 4/5 and Zero 2 W; most PCs have
 none. Linux's `dummy_hcd` module adds a virtual one for testing.
@@ -121,13 +121,13 @@ How custom functions behave:
 ## Examples
 
 See [example/](example): a keyboard, a gamepad implemented as a custom
-function, a USB drive, and a bulk echo gadget with a `dusb` host program.
+function, a USB drive, and a bulk echo gadget with a `usb_host` host program.
 
 ## Testing
 
 `test/models_test.dart` runs anywhere. `test/native_test.dart` loads the
 native library on any Linux machine. `test/gadget_test.dart` registers
-gadgets on the virtual `dummy_hcd` controller and talks to them with `dusb`
+gadgets on the virtual `dummy_hcd` controller and talks to them with `usb_host`
 on the same machine:
 
 ```sh

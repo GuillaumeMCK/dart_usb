@@ -6,5 +6,5 @@ environment:
 
 workspace:
   - packages/usb_models
-  - packages/dusb
+  - packages/usb_host
   - packages/usb_gadget

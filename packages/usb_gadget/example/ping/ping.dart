@@ -1,9 +1,9 @@
-// The host side of ping/pong, with dusb: finds the pong gadget, sends
+// The host side of ping/pong, with usb_host: finds the pong gadget, sends
 // payloads and checks they come back. Runs on macOS, Linux or Windows.
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:dusb/dusb.dart';
+import 'package:usb_host/usb_host.dart';
 
 Future<void> main() async {
   final usb = await Usb.initialize();

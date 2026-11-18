@@ -47,7 +47,7 @@ maintained configfs support. The API is new.
 - Functions the Dart version lacked access to through the crate: WebUSB and
   Microsoft OS descriptors, interface associations, Microsoft extended
   properties, and custom class descriptors on custom interfaces.
-- End-to-end tests against `dummy_hcd`, using `dusb` as the host.
+- End-to-end tests against `dummy_hcd`, using `usb_host` as the host.
 
 ## 1.0.3
 ### Fixed

@@ -1,4 +1,4 @@
-/// USB standard types and descriptors shared by `dusb` (host side) and
+/// USB standard types and descriptors shared by `usb_host` (host side) and
 /// `usb_gadget` (device side).
 ///
 /// Covers the USB 2.0/3.x chapter 9 definitions (directions, request types,

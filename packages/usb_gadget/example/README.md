@@ -8,4 +8,4 @@ controller (or with the `dummy_hcd` module for a virtual one).
   custom function, answering the HID control requests itself.
 - [mass_storage.dart](mass_storage.dart): serves disk images as a USB drive.
 - [ping/pong.dart](ping/pong.dart) with [ping/ping.dart](ping/ping.dart): a
-  bulk echo function, and a host program using `dusb` to exercise it.
+  bulk echo function, and a host program using `usb_host` to exercise it.

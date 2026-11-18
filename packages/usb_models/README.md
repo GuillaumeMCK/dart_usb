@@ -1,7 +1,7 @@
 # usb_models
 
 USB standard types and descriptors for Dart, shared by
-[`dusb`](../dusb) (host side: talk to devices) and
+[`usb_host`](../usb_host) (host side: talk to devices) and
 [`usb_gadget`](../usb_gadget) (device side: be a device).
 
 - Chapter 9 types: `Direction`, `TransferType`, `RequestType`, `Recipient`,
