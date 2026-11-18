@@ -1,6 +1,6 @@
 name: usb_host_example
 description: "Demonstrates how to use the usb_host plugin."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -8,7 +8,6 @@ environment:
   sdk: ^3.14.0
 
 dependencies:
-  cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
   material_ui: ^1.1.0
@@ -18,18 +17,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   integration_test:
     sdk: flutter
 
-
 flutter:
-
   uses-material-design: true
-
-
-
-
 
 # usb_models is a sibling package in this workspace, not yet on pub.dev.
 dependency_overrides:

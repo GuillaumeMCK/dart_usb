@@ -3,37 +3,26 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:usb_host/usb_host.dart';
 
-Future<void> main() async {
-  final usb = await Usb.initialize();
-  runApp(UsbHostExampleApp(usb: usb));
-}
+void main() => runApp(const UsbHostExampleApp());
 
 /// The example app.
-class const UsbHostExampleApp({super.key, required this.usb})
-    extends StatelessWidget {
-  /// The example app, showing the devices [usb] finds.
+class const UsbHostExampleApp({super.key}) extends StatelessWidget {
+  /// The example app, listing connected USB devices.
   this;
-
-  /// Access to the USB devices.
-  final Usb usb;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'usb_host',
     theme: ThemeData(colorSchemeSeed: Colors.teal),
-    home: DeviceListPage(usb: usb),
+    home: const DeviceListPage(),
   );
 }
 
 /// Lists connected USB devices and keeps the list current with hotplug
 /// events.
-class const DeviceListPage({super.key, required this.usb})
-    extends StatefulWidget {
-  /// The device list, kept current by [usb]
+class const DeviceListPage({super.key}) extends StatefulWidget {
+  /// The device list.
   this;
-
-  /// Access to the USB devices.
-  final Usb usb;
 
   @override
   State<DeviceListPage> createState() => _DeviceListPageState();
@@ -47,33 +36,48 @@ class _DeviceListPageState() extends State<DeviceListPage> {
   @override
   void initState() {
     super.initState();
-    _start();
+    unawaited(_start());
   }
 
   Future<void> _start() async {
-    // Listen before listing, so a device connected in between isn't missed.
-    _events = widget.usb.watchDevices().listen(
-      (event) => setState(() {
-        switch (event) {
-          case HotplugConnected(:final device):
-            _devices[device.id] = device;
-          case HotplugDisconnected(:final id):
-            _devices.remove(id);
-        }
-      }),
-      onError: (Object e) => setState(() => _error = e),
-    );
+    final Usb usb;
     try {
-      final devices = await widget.usb.listDevices();
-      setState(() => _devices.addAll({for (final d in devices) d.id: d}));
-    } on UsbException catch (e) {
-      setState(() => _error = e);
+      usb = await Usb.initialize();
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = e);
+      return;
     }
+    if (!mounted) return;
+    // The stream lists the devices already connected once it is watching,
+    // so none is missed and events arrive in order.
+    _events = usb
+        .watchDevices(includeConnected: true)
+        .listen(
+          (event) => setState(() {
+            switch (event) {
+              case HotplugConnected(:final device):
+                _devices[device.id] = device;
+              case HotplugDisconnected(:final id):
+                _devices.remove(id);
+            }
+          }),
+          onError: (Object e) => setState(() => _error = e),
+        );
+  }
+
+  Future<void> _retry() async {
+    await _events?.cancel();
+    _events = null;
+    setState(() {
+      _error = null;
+      _devices.clear();
+    });
+    await _start();
   }
 
   @override
   void dispose() {
-    _events?.cancel();
+    unawaited(_events?.cancel());
     super.dispose();
   }
 
@@ -81,7 +85,16 @@ class _DeviceListPageState() extends State<DeviceListPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('USB devices')),
     body: switch (_error) {
-      final error? => Center(child: Text('$error')),
+      final error? => Center(
+        child: Column(
+          mainAxisSize: .min,
+          spacing: 16,
+          children: [
+            Text('$error', textAlign: .center),
+            FilledButton(onPressed: _retry, child: const Text('Retry')),
+          ],
+        ),
+      ),
       null => ListView(
         children: [
           for (final DeviceInfo(

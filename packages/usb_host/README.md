@@ -66,11 +66,13 @@ try {
 
 **Hotplug.** `watchDevices()` is a normal Dart stream of the sealed class
 `HotplugEvent`, so a `switch` over it is exhaustive. Cancel the
-subscription to stop watching. Listen before listing so no device is missed:
+subscription to stop watching. With `includeConnected: true` the stream
+starts with the devices already connected, listed once the watch is open,
+so none is missed:
 
 ```dart
 final devices = <DeviceId, DeviceInfo>{};
-final subscription = usb.watchDevices().listen((event) {
+final subscription = usb.watchDevices(includeConnected: true).listen((event) {
   switch (event) {
     case HotplugConnected(:final device):
       devices[device.id] = device;
@@ -78,9 +80,6 @@ final subscription = usb.watchDevices().listen((event) {
       devices.remove(id);
   }
 });
-for (final device in await usb.listDevices()) {
-  devices[device.id] = device;
-}
 ```
 
 **Descriptors and strings.** Descriptors are cached when the device is

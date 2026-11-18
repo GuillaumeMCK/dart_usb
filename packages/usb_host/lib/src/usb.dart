@@ -48,14 +48,16 @@ final class Usb._() {
     List<rust.DeviceSelector> selectors = const [rust.DeviceSelector()],
   ]) => rust.requestDevice(selectors);
 
-  /// Devices connecting and disconnecting, from the moment this stream is
-  /// listened to. Cancel the subscription to stop watching.
+  /// Devices connecting and disconnecting. Cancel the subscription to stop
+  /// watching.
   ///
-  /// To keep a list of connected devices, listen first and then call
-  /// [listDevices], so a device connected in between isn't missed:
+  /// With [includeConnected], the stream starts with a [HotplugConnected]
+  /// for each device already connected, listed after the watch is open, so
+  /// none is missed or reported out of order. A device connected while
+  /// listing may be reported twice. To keep a list of connected devices:
   ///
   /// ```dart
-  /// usb.watchDevices().listen((event) {
+  /// usb.watchDevices(includeConnected: true).listen((event) {
   ///   switch (event) {
   ///     case HotplugConnected(:final device): devices[device.id] = device;
   ///     case HotplugDisconnected(:final id): devices.remove(id);
@@ -63,9 +65,12 @@ final class Usb._() {
   /// });
   /// ```
   ///
+  /// Without it, events start once the native watch is open, a moment after
+  /// the stream is listened to.
+  ///
   /// On Windows, the interfaces of a composite device might not be ready
   /// when it is reported connected; retry opening after a short delay.
-  Stream<rust.HotplugEvent> watchDevices() {
+  Stream<rust.HotplugEvent> watchDevices({bool includeConnected = false}) {
     // Polls with a short timeout so cancelling takes effect promptly; the
     // native watch is released as soon as the subscription ends.
     const poll = Duration(milliseconds: 250);
@@ -76,6 +81,11 @@ final class Usb._() {
         try {
           final watch = await rust.openHotplugWatch();
           try {
+            if (includeConnected) {
+              for (final device in await rust.listDevices()) {
+                if (active) controller.add(HotplugConnected(device: device));
+              }
+            }
             while (active) {
               final event = await watch.nextEvent(timeout: poll);
               if (event != null && active) controller.add(event);

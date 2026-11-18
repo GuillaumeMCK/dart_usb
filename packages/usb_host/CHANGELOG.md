@@ -1,5 +1,7 @@
 ## 0.1.0
 
+- `watchDevices(includeConnected: true)` starts with the devices already
+  connected, listed after the watch opens, so none is missed.
 - Descriptors, speeds and control requests use the shared
   [`usb_models`](../usb_models) types (re-exported).
 
