@@ -1,0 +1,18 @@
+name: usb_models
+description: >-
+  USB standard (chapter 9) and HID types and descriptors for Dart: parse
+  descriptors read from devices and build descriptors for gadgets.
+version: 0.1.0
+repository: https://github.com/GuillaumeMCK/usb
+
+environment:
+  sdk: ^3.14.0
+
+resolution: workspace
+
+dependencies:
+  meta: ^1.17.0
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.0

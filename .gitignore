@@ -1,0 +1,7 @@
+.dart_tool/
+pubspec.lock
+build/
+doc/api/
+.idea/
+.fvm/
+.DS_Store

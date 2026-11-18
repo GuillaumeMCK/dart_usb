@@ -1,0 +1,10 @@
+name: usb_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.14.0
+
+workspace:
+  - packages/usb_models
+  - packages/dusb
+  - packages/usb_gadget

@@ -9,6 +9,8 @@ issue_tracker: https://github.com/GuillaumeMCK/dusb/issues
 environment:
   sdk: ^3.14.0
 
+resolution: workspace
+
 dependencies:
   ffi: ^2.2.0
   flutter_rust_bridge: 2.13.0
