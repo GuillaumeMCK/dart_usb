@@ -100,8 +100,23 @@ await for (final event in echo.events) {
 }
 ```
 
-Each control request must be answered once: `send` (IN), `receive` (OUT) or
-`halt`. Unanswered requests are stalled after 4.5 seconds.
+How custom functions behave:
+
+- **Control requests** must be answered exactly once (`send`, `receive` or
+  `halt`; a second answer throws). `send` truncates to the length the host
+  asked for. Unanswered requests are stalled after 4.5 seconds, and a later
+  answer throws a `timedOut` `GadgetException`. While nobody listens to
+  `events`, requests are stalled at once.
+- **`events`** can be listened to before registering; lifecycle events that
+  happened earlier are delivered first. One listener at a time.
+  `interfaceNumber(i)` doesn't block, so handlers can use it to check
+  `setup.index`.
+- **`OutEndpoint.stream()`** keeps `queueLength` buffers queued. Start it on
+  `EnableEvent`; it ends when the host disables the function. Pausing it
+  holds the host off (NAK) instead of buffering in Dart. Use either
+  `stream()` or `read()`, not both.
+- **Registering again** after `remove()` starts the function afresh;
+  streams from the previous registration end.
 
 ## Examples
 

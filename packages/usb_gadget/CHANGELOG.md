@@ -33,6 +33,15 @@ maintained configfs support. The API is new.
   `USBEndpointDescriptor` → `EndpointDescriptor`, `HIDDescriptor` →
   `HidDescriptor`, and so on.
 - Errors are `GadgetException`s with a `GadgetErrorKind`.
+- Custom functions: one Rust thread owns each function and exchanges events
+  and answers with Dart over channels, so answers never wait on a lock;
+  late answers fail promptly; `interfaceNumber` and `mountPath` are
+  synchronous and safe inside control-request handlers; requests nobody
+  listens to are stalled at once.
+- Endpoint waits release the endpoint between 50 ms slices, so queries such
+  as `maxPacketSize` answer while a read waits; `OutEndpoint.stream()` and
+  `events` respect pause, giving USB flow control instead of buffering.
+- Functions (custom and kernel) can be registered again after removal.
 
 ### Added
 - Functions the Dart version lacked access to through the crate: WebUSB and

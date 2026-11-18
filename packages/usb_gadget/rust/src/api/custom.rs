@@ -1,16 +1,9 @@
-//! Custom functions implemented in Dart through FunctionFS.
-//!
-//! The crate answers a control request through a value that borrows the
-//! function until the reply is sent, which can't cross into Dart. So each
-//! function's events are read by a Rust thread (the pump): it forwards each
-//! event to Dart and, for a control request, waits for Dart's reply before
-//! reading the next event.
+//! Custom functions implemented in Dart through FunctionFS. Each function
+//! is owned by its own thread; see `crate::event_thread`.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
+use std::sync::{mpsc, Mutex};
 
 use flutter_rust_bridge::frb;
 use usb_gadget::function::custom;
@@ -20,13 +13,7 @@ use super::error::{GadgetErrorKind, GadgetException};
 use super::function::FunctionState;
 use super::gadget::FunctionHandle;
 use super::{localized, path_string, std_duration, ClassCodes, LocalizedString};
-
-/// How long a control request waits for Dart's reply before it is stalled.
-/// Hosts give up after 5 seconds.
-const REPLY_TIMEOUT: Duration = Duration::from_millis(4500);
-
-/// How often blocked waits check whether they were stopped.
-const POLL: Duration = Duration::from_millis(100);
+use crate::event_thread::{Action, EventThread, Outcome, Reply, REPLY_TIMEOUT};
 
 // --- Settings ---------------------------------------------------------------
 
@@ -224,199 +211,8 @@ pub struct CustomEvent {
 }
 
 impl CustomEvent {
-    fn simple(kind: CustomEventKind) -> Self {
+    pub(crate) fn simple(kind: CustomEventKind) -> Self {
         CustomEvent { kind, id: 0, setup: Vec::new(), code: 0 }
-    }
-}
-
-enum Action {
-    Send(Vec<u8>),
-    Receive,
-    Halt,
-}
-
-enum Outcome {
-    Sent(usize),
-    Received(Vec<u8>),
-    Halted,
-}
-
-struct Reply {
-    id: u32,
-    action: Action,
-    done: mpsc::Sender<Result<Outcome, GadgetException>>,
-}
-
-struct Pump {
-    events: Mutex<mpsc::Receiver<Result<CustomEvent, GadgetException>>>,
-    replies: mpsc::Sender<Reply>,
-    stop: Arc<AtomicBool>,
-    thread: Option<JoinHandle<()>>,
-}
-
-impl Pump {
-    fn start(custom: Arc<Mutex<custom::Custom>>) -> Pump {
-        let (events_tx, events_rx) = mpsc::channel();
-        let (replies_tx, replies_rx) = mpsc::channel();
-        let stop = Arc::new(AtomicBool::new(false));
-        let thread = {
-            let stop = stop.clone();
-            std::thread::Builder::new()
-                .name("usb_gadget events".into())
-                .spawn(move || run_pump(&custom, &events_tx, &replies_rx, &stop))
-                .expect("spawning the event thread")
-        };
-        Pump { events: Mutex::new(events_rx), replies: replies_tx, stop, thread: Some(thread) }
-    }
-}
-
-impl Drop for Pump {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
-        }
-    }
-}
-
-fn setup_bytes(r: &custom::CtrlReq) -> Vec<u8> {
-    let mut b = vec![r.request_type, r.request];
-    b.extend_from_slice(&r.value.to_le_bytes());
-    b.extend_from_slice(&r.index.to_le_bytes());
-    b.extend_from_slice(&r.length.to_le_bytes());
-    b
-}
-
-/// Waits for Dart's reply to request [id]; none if it timed out or the pump
-/// is stopping.
-fn wait_reply(replies: &mpsc::Receiver<Reply>, id: u32, stop: &AtomicBool) -> Option<Reply> {
-    let deadline = Instant::now() + REPLY_TIMEOUT;
-    while !stop.load(Ordering::Relaxed) {
-        let left = deadline.checked_duration_since(Instant::now())?;
-        match replies.recv_timeout(left.min(POLL)) {
-            Ok(reply) if reply.id == id => return Some(reply),
-            Ok(stale) => {
-                let _ = stale.done.send(Err(GadgetException::new(
-                    GadgetErrorKind::TimedOut,
-                    "the control request was already stalled",
-                )));
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => return None,
-        }
-    }
-    None
-}
-
-fn wrong_direction() -> GadgetException {
-    GadgetException::new(GadgetErrorKind::InvalidInput, "wrong reply for this control request's direction")
-}
-
-fn run_pump(
-    custom: &Mutex<custom::Custom>,
-    events: &mpsc::Sender<Result<CustomEvent, GadgetException>>,
-    replies: &mpsc::Receiver<Reply>,
-    stop: &AtomicBool,
-) {
-    let mut next_id = 0u32;
-    while !stop.load(Ordering::Relaxed) {
-        let mut function = custom.lock().unwrap();
-        let keep_going = match function.event_timeout(POLL) {
-            Ok(Some(event)) => dispatch(event, events, replies, stop, &mut next_id),
-            Ok(None) => true,
-            // FunctionFS isn't mounted until the gadget is registered.
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                std::thread::sleep(POLL);
-                true
-            }
-            Err(e) => {
-                let _ = events.send(Err(e.into()));
-                false
-            }
-        };
-        if !keep_going {
-            return;
-        }
-    }
-}
-
-/// Forwards [event] to Dart, and answers control requests with Dart's
-/// reply. Returns false once Dart stopped listening.
-fn dispatch(
-    event: custom::Event<'_>,
-    events: &mpsc::Sender<Result<CustomEvent, GadgetException>>,
-    replies: &mpsc::Receiver<Reply>,
-    stop: &AtomicBool,
-    next_id: &mut u32,
-) -> bool {
-    let simple = |kind| events.send(Ok(CustomEvent::simple(kind))).is_ok();
-    match event {
-        custom::Event::Bind => simple(CustomEventKind::Bind),
-        custom::Event::Unbind => simple(CustomEventKind::Unbind),
-        custom::Event::Enable => simple(CustomEventKind::Enable),
-        custom::Event::Disable => simple(CustomEventKind::Disable),
-        custom::Event::Suspend => simple(CustomEventKind::Suspend),
-        custom::Event::Resume => simple(CustomEventKind::Resume),
-        custom::Event::SetupDeviceToHost(sender) => {
-            *next_id = next_id.wrapping_add(1);
-            let event = CustomEvent {
-                kind: CustomEventKind::SetupDeviceToHost,
-                id: *next_id,
-                setup: setup_bytes(sender.ctrl_req()),
-                code: 0,
-            };
-            if events.send(Ok(event)).is_err() {
-                return false;
-            }
-            match wait_reply(replies, *next_id, stop) {
-                Some(Reply { action: Action::Send(data), done, .. }) => {
-                    let _ = done.send(sender.send(&data).map(Outcome::Sent).map_err(Into::into));
-                }
-                Some(Reply { action: Action::Halt, done, .. }) => {
-                    let _ = done.send(sender.halt().map(|_| Outcome::Halted).map_err(Into::into));
-                }
-                Some(Reply { action: Action::Receive, done, .. }) => {
-                    let _ = sender.halt();
-                    let _ = done.send(Err(wrong_direction()));
-                }
-                None => {
-                    let _ = sender.halt();
-                }
-            }
-            true
-        }
-        custom::Event::SetupHostToDevice(receiver) => {
-            *next_id = next_id.wrapping_add(1);
-            let event = CustomEvent {
-                kind: CustomEventKind::SetupHostToDevice,
-                id: *next_id,
-                setup: setup_bytes(receiver.ctrl_req()),
-                code: 0,
-            };
-            if events.send(Ok(event)).is_err() {
-                return false;
-            }
-            match wait_reply(replies, *next_id, stop) {
-                Some(Reply { action: Action::Receive, done, .. }) => {
-                    let _ = done.send(receiver.recv_all().map(Outcome::Received).map_err(Into::into));
-                }
-                Some(Reply { action: Action::Halt, done, .. }) => {
-                    let _ = done.send(receiver.halt().map(|_| Outcome::Halted).map_err(Into::into));
-                }
-                Some(Reply { action: Action::Send(_), done, .. }) => {
-                    let _ = receiver.halt();
-                    let _ = done.send(Err(wrong_direction()));
-                }
-                None => {
-                    let _ = receiver.halt();
-                }
-            }
-            true
-        }
-        custom::Event::Unknown(code) => {
-            events.send(Ok(CustomEvent { code, ..CustomEvent::simple(CustomEventKind::Unknown) })).is_ok()
-        }
-        _ => true,
     }
 }
 
@@ -431,17 +227,18 @@ pub(crate) enum EndpointIo {
 #[frb(opaque)]
 pub struct CustomFunction {
     handle: usb_gadget::function::Handle,
-    custom: Arc<Mutex<custom::Custom>>,
     status: Option<usb_gadget::function::util::Status>,
     endpoints: Mutex<Vec<Option<EndpointIo>>>,
-    pump: Mutex<Option<Pump>>,
+    thread: EventThread,
 }
 
 impl CustomFunction {
-    /// Builds the function. Its endpoints, in declaration order across
-    /// interfaces, are taken with [take_sender] and [take_receiver].
+    /// Builds the function and starts its event thread. Its endpoints, in
+    /// declaration order across interfaces, are taken with [take_sender] and
+    /// [take_receiver].
     #[frb(sync)]
     pub fn new(spec: CustomSpec) -> Result<CustomFunction, GadgetException> {
+        let interface_count = spec.interfaces.len();
         let mut builder = custom::Custom::builder();
         let mut endpoints = Vec::new();
         let mut associations = HashMap::new();
@@ -489,9 +286,8 @@ impl CustomFunction {
         Ok(CustomFunction {
             handle,
             status: custom.status(),
-            custom: Arc::new(Mutex::new(custom)),
             endpoints: Mutex::new(endpoints),
-            pump: Mutex::new(None),
+            thread: EventThread::spawn(custom, interface_count)?,
         })
     }
 
@@ -539,52 +335,62 @@ impl CustomFunction {
         }
     }
 
-    /// The address the host sees for interface number [interface] of this
-    /// function. Available once bound.
-    #[frb(positional)]
-    pub fn real_interface_number(&self, interface: u8) -> Result<u8, GadgetException> {
-        Ok(self.custom.lock().unwrap().real_address(interface)?)
+    /// The number the host sees for interface [index] of this function.
+    /// Throws `notReady` until the function is bound. Never blocks, so it is
+    /// safe while answering a control request.
+    #[frb(sync, positional)]
+    pub fn interface_number(&self, index: u32) -> Result<u8, GadgetException> {
+        let info = self.thread.shared.info.lock().unwrap();
+        match info.interface_numbers.get(index as usize) {
+            Some(Some(number)) => Ok(*number),
+            Some(None) => Err(GadgetException::new(GadgetErrorKind::NotReady, "the function is not bound yet")),
+            None => Err(GadgetException::new(GadgetErrorKind::NotFound, format!("no interface {index}"))),
+        }
     }
 
-    /// Where FunctionFS is mounted. Available once registered.
+    /// Where FunctionFS is mounted. Throws `notReady` until registered.
+    #[frb(sync, getter)]
     pub fn ffs_dir(&self) -> Result<String, GadgetException> {
-        Ok(path_string(self.custom.lock().unwrap().ffs_dir()?))
+        match &self.thread.shared.info.lock().unwrap().ffs_dir {
+            Some(dir) => Ok(path_string(dir)),
+            None => Err(GadgetException::new(GadgetErrorKind::NotReady, "the function is not registered yet")),
+        }
     }
 
-    /// The next event, waiting up to [timeout]; none if it elapses. Starts
-    /// reading events on first call.
+    /// Whether Dart is listening for events. While not, control requests
+    /// are stalled at once; lifecycle events are kept for the next listener.
+    #[frb(sync, positional)]
+    pub fn set_listening(&self, listening: bool) {
+        self.thread.shared.listening.store(listening, Ordering::Relaxed);
+    }
+
+    /// The next event, waiting up to [timeout]; none if it elapses. For a
+    /// single poller.
     #[frb(positional)]
     pub fn next_event(&self, timeout: chrono::Duration) -> Result<Option<CustomEvent>, GadgetException> {
-        let mut pump = self.pump.lock().unwrap();
-        let pump = pump.get_or_insert_with(|| Pump::start(self.custom.clone()));
-        let events = pump.events.lock().unwrap();
+        let events = self.thread.events.lock().unwrap();
         match events.recv_timeout(std_duration(timeout)) {
             Ok(event) => event.map(Some),
             Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
             Err(mpsc::RecvTimeoutError::Disconnected) => {
-                Err(GadgetException::new(GadgetErrorKind::Disconnected, "event reading stopped"))
+                Err(GadgetException::new(GadgetErrorKind::Disconnected, "the function is closed"))
             }
         }
     }
 
-    /// Stops reading events. Pending control requests are stalled.
-    #[frb(sync)]
-    pub fn stop_events(&self) {
-        self.pump.lock().unwrap().take();
-    }
-
     fn reply(&self, id: u32, action: Action) -> Result<Outcome, GadgetException> {
-        let replies = match self.pump.lock().unwrap().as_ref() {
-            Some(pump) => pump.replies.clone(),
-            None => return Err(GadgetException::new(GadgetErrorKind::Disconnected, "event reading stopped")),
-        };
+        let closed = || GadgetException::new(GadgetErrorKind::Disconnected, "the function is closed");
         let (done, result) = mpsc::channel();
-        replies
-            .send(Reply { id, action, done })
-            .map_err(|_| GadgetException::new(GadgetErrorKind::Disconnected, "event reading stopped"))?;
-        result
-            .recv()
-            .map_err(|_| GadgetException::new(GadgetErrorKind::TimedOut, "the control request was already stalled"))?
+        self.thread.replies.send(Reply { id, action, done }).map_err(|_| closed())?;
+        // The thread answers within REPLY_TIMEOUT plus one poll, even for a
+        // stale id; the margin covers the transfer itself.
+        match result.recv_timeout(REPLY_TIMEOUT * 2) {
+            Ok(outcome) => outcome,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                Err(GadgetException::new(GadgetErrorKind::TimedOut, "no answer from the event thread"))
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(closed()),
+        }
     }
 
     /// Answers device-to-host request [id] with [data]; returns the number
@@ -610,12 +416,5 @@ impl CustomFunction {
     #[frb(positional)]
     pub fn reply_halt(&self, id: u32) -> Result<(), GadgetException> {
         self.reply(id, Action::Halt).map(|_| ())
-    }
-}
-
-impl Drop for CustomFunction {
-    fn drop(&mut self) {
-        // Stop the pump before the function's files close.
-        self.pump.get_mut().unwrap().take();
     }
 }

@@ -75,7 +75,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 513833014;
+  int get rustContentHash => -1391380530;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,12 +87,15 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<String> crateApiCustomCustomFunctionFfsDir({
-    required CustomFunction that,
-  });
+  String crateApiCustomCustomFunctionFfsDir({required CustomFunction that});
 
   FunctionHandle crateApiCustomCustomFunctionHandle({
     required CustomFunction that,
+  });
+
+  int crateApiCustomCustomFunctionInterfaceNumber({
+    required CustomFunction that,
+    required int index,
   });
 
   CustomFunction crateApiCustomCustomFunctionNew({required CustomSpec spec});
@@ -103,11 +106,6 @@ abstract class RustLibApi extends BaseApi {
   });
 
   String? crateApiCustomCustomFunctionPath({required CustomFunction that});
-
-  Future<int> crateApiCustomCustomFunctionRealInterfaceNumber({
-    required CustomFunction that,
-    required int interface_,
-  });
 
   Future<void> crateApiCustomCustomFunctionReplyHalt({
     required CustomFunction that,
@@ -125,11 +123,14 @@ abstract class RustLibApi extends BaseApi {
     required List<int> data,
   });
 
+  void crateApiCustomCustomFunctionSetListening({
+    required CustomFunction that,
+    required bool listening,
+  });
+
   FunctionState crateApiCustomCustomFunctionState({
     required CustomFunction that,
   });
-
-  void crateApiCustomCustomFunctionStopEvents({required CustomFunction that});
 
   EndpointReceiver crateApiCustomCustomFunctionTakeReceiver({
     required CustomFunction that,
@@ -430,23 +431,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<String> crateApiCustomCustomFunctionFfsDir({
-    required CustomFunction that,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
+  String crateApiCustomCustomFunctionFfsDir({required CustomFunction that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCustomFunction(
             that,
             serializer,
           );
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 1,
-            port: port_,
-          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -498,13 +492,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  int crateApiCustomCustomFunctionInterfaceNumber({
+    required CustomFunction that,
+    required int index,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCustomFunction(
+            that,
+            serializer,
+          );
+          sse_encode_u_32(index, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_8,
+          decodeErrorData: sse_decode_gadget_exception,
+        ),
+        constMeta: kCrateApiCustomCustomFunctionInterfaceNumberConstMeta,
+        argValues: [that, index],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCustomCustomFunctionInterfaceNumberConstMeta =>
+      const TaskConstMeta(
+        debugName: "CustomFunction_interface_number",
+        argNames: ["that", "index"],
+      );
+
+  @override
   CustomFunction crateApiCustomCustomFunctionNew({required CustomSpec spec}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_box_autoadd_custom_spec(spec, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -538,7 +565,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -569,7 +596,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_String,
@@ -584,44 +611,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiCustomCustomFunctionPathConstMeta =>
       const TaskConstMeta(debugName: "CustomFunction_path", argNames: ["that"]);
-
-  @override
-  Future<int> crateApiCustomCustomFunctionRealInterfaceNumber({
-    required CustomFunction that,
-    required int interface_,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCustomFunction(
-            that,
-            serializer,
-          );
-          sse_encode_u_8(interface_, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 6,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_u_8,
-          decodeErrorData: sse_decode_gadget_exception,
-        ),
-        constMeta: kCrateApiCustomCustomFunctionRealInterfaceNumberConstMeta,
-        argValues: [that, interface_],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiCustomCustomFunctionRealInterfaceNumberConstMeta =>
-      const TaskConstMeta(
-        debugName: "CustomFunction_real_interface_number",
-        argNames: ["that", "interface_"],
-      );
 
   @override
   Future<void> crateApiCustomCustomFunctionReplyHalt({
@@ -740,6 +729,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  void crateApiCustomCustomFunctionSetListening({
+    required CustomFunction that,
+    required bool listening,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCustomFunction(
+            that,
+            serializer,
+          );
+          sse_encode_bool(listening, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCustomCustomFunctionSetListeningConstMeta,
+        argValues: [that, listening],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCustomCustomFunctionSetListeningConstMeta =>
+      const TaskConstMeta(
+        debugName: "CustomFunction_set_listening",
+        argNames: ["that", "listening"],
+      );
+
+  @override
   FunctionState crateApiCustomCustomFunctionState({
     required CustomFunction that,
   }) {
@@ -751,7 +773,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_function_state,
@@ -767,35 +789,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiCustomCustomFunctionStateConstMeta =>
       const TaskConstMeta(
         debugName: "CustomFunction_state",
-        argNames: ["that"],
-      );
-
-  @override
-  void crateApiCustomCustomFunctionStopEvents({required CustomFunction that}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCustomFunction(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiCustomCustomFunctionStopEventsConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiCustomCustomFunctionStopEventsConstMeta =>
-      const TaskConstMeta(
-        debugName: "CustomFunction_stop_events",
         argNames: ["that"],
       );
 
@@ -6840,30 +6833,28 @@ class CustomFunctionImpl extends RustOpaque implements CustomFunction {
         RustLib.instance.api.rust_arc_decrement_strong_count_CustomFunctionPtr,
   );
 
-  /// Where FunctionFS is mounted. Available once registered.
-  Future<String> ffsDir() =>
+  /// Where FunctionFS is mounted. Throws `notReady` until registered.
+  String get ffsDir =>
       RustLib.instance.api.crateApiCustomCustomFunctionFfsDir(that: this);
 
   /// A handle for adding this function to a configuration.
   FunctionHandle handle() =>
       RustLib.instance.api.crateApiCustomCustomFunctionHandle(that: this);
 
-  /// The next event, waiting up to [timeout]; none if it elapses. Starts
-  /// reading events on first call.
+  /// The number the host sees for interface [index] of this function.
+  /// Throws `notReady` until the function is bound. Never blocks, so it is
+  /// safe while answering a control request.
+  int interfaceNumber(int index) => RustLib.instance.api
+      .crateApiCustomCustomFunctionInterfaceNumber(that: this, index: index);
+
+  /// The next event, waiting up to [timeout]; none if it elapses. For a
+  /// single poller.
   Future<CustomEvent?> nextEvent(Duration timeout) => RustLib.instance.api
       .crateApiCustomCustomFunctionNextEvent(that: this, timeout: timeout);
 
   /// The function's configfs directory, once registered.
   String? get path =>
       RustLib.instance.api.crateApiCustomCustomFunctionPath(that: this);
-
-  /// The address the host sees for interface number [interface] of this
-  /// function. Available once bound.
-  Future<int> realInterfaceNumber(int interface_) =>
-      RustLib.instance.api.crateApiCustomCustomFunctionRealInterfaceNumber(
-        that: this,
-        interface_: interface_,
-      );
 
   /// Rejects request [id] by stalling the control endpoint.
   Future<void> replyHalt(int id) => RustLib.instance.api
@@ -6878,12 +6869,16 @@ class CustomFunctionImpl extends RustOpaque implements CustomFunction {
   Future<int> replySend(int id, List<int> data) => RustLib.instance.api
       .crateApiCustomCustomFunctionReplySend(that: this, id: id, data: data);
 
+  /// Whether Dart is listening for events. While not, control requests
+  /// are stalled at once; lifecycle events are kept for the next listener.
+  void setListening(bool listening) =>
+      RustLib.instance.api.crateApiCustomCustomFunctionSetListening(
+        that: this,
+        listening: listening,
+      );
+
   FunctionState get state =>
       RustLib.instance.api.crateApiCustomCustomFunctionState(that: this);
-
-  /// Stops reading events. Pending control requests are stalled.
-  void stopEvents() =>
-      RustLib.instance.api.crateApiCustomCustomFunctionStopEvents(that: this);
 
   /// The receiving side of host-to-device endpoint [index].
   EndpointReceiver takeReceiver(int index) => RustLib.instance.api

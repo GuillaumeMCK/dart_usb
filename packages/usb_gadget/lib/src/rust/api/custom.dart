@@ -12,33 +12,35 @@ import 'gadget.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dispatch`, `eight_bytes`, `endpoint`, `reg_value`, `reply`, `run_pump`, `setup_bytes`, `simple`, `start`, `take`, `wait_reply`, `wrong_direction`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Action`, `EndpointIo`, `Outcome`, `Pump`, `Reply`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `drop`, `drop`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `eight_bytes`, `endpoint`, `reg_value`, `reply`, `simple`, `take`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `EndpointIo`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CustomFunction>>
 abstract class CustomFunction implements RustOpaqueInterface {
-  /// Where FunctionFS is mounted. Available once registered.
-  Future<String> ffsDir();
+  /// Where FunctionFS is mounted. Throws `notReady` until registered.
+  String get ffsDir;
 
   /// A handle for adding this function to a configuration.
   FunctionHandle handle();
 
-  /// Builds the function. Its endpoints, in declaration order across
-  /// interfaces, are taken with [take_sender] and [take_receiver].
+  /// The number the host sees for interface [index] of this function.
+  /// Throws `notReady` until the function is bound. Never blocks, so it is
+  /// safe while answering a control request.
+  int interfaceNumber(int index);
+
+  /// Builds the function and starts its event thread. Its endpoints, in
+  /// declaration order across interfaces, are taken with [take_sender] and
+  /// [take_receiver].
   factory CustomFunction({required CustomSpec spec}) =>
       RustLib.instance.api.crateApiCustomCustomFunctionNew(spec: spec);
 
-  /// The next event, waiting up to [timeout]; none if it elapses. Starts
-  /// reading events on first call.
+  /// The next event, waiting up to [timeout]; none if it elapses. For a
+  /// single poller.
   Future<CustomEvent?> nextEvent(Duration timeout);
 
   /// The function's configfs directory, once registered.
   String? get path;
-
-  /// The address the host sees for interface number [interface] of this
-  /// function. Available once bound.
-  Future<int> realInterfaceNumber(int interface_);
 
   /// Rejects request [id] by stalling the control endpoint.
   Future<void> replyHalt(int id);
@@ -50,10 +52,11 @@ abstract class CustomFunction implements RustOpaqueInterface {
   /// of bytes sent.
   Future<int> replySend(int id, List<int> data);
 
-  FunctionState get state;
+  /// Whether Dart is listening for events. While not, control requests
+  /// are stalled at once; lifecycle events are kept for the next listener.
+  void setListening(bool listening);
 
-  /// Stops reading events. Pending control requests are stalled.
-  void stopEvents();
+  FunctionState get state;
 
   /// The receiving side of host-to-device endpoint [index].
   EndpointReceiver takeReceiver(int index);

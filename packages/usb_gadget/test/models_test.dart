@@ -45,4 +45,9 @@ void main() {
     expect(() => SerialFunction().devicePath, throwsStateError);
     expect(() => OutEndpoint().read(), throwsStateError);
   });
+
+  test('endpoints need a queue', () {
+    expect(() => InEndpoint(queueLength: 0), throwsArgumentError);
+    expect(OutEndpoint(queueLength: 1).queueLength, 1);
+  });
 }

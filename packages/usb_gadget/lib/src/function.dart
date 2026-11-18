@@ -50,7 +50,15 @@ abstract base class KernelFunction extends GadgetFunction {
 
   @override
   @internal
-  FunctionHandle createHandle() => (_native ??= create()).handle();
+  FunctionHandle createHandle() {
+    // A new registration after removal gets a fresh native function, as
+    // custom functions do, rather than reusing one configfs let go of.
+    if (_native case final native? when native.state != .removed) {
+      return native.handle();
+    }
+    _native?.dispose();
+    return (_native = create()).handle();
+  }
 
   @override
   rust.FunctionState get state => _native?.state ?? .unregistered;

@@ -8,7 +8,7 @@ library;
 
 export 'package:usb_models/usb_models.dart';
 
-export 'src/custom.dart';
+export 'src/custom/custom.dart';
 export 'src/function.dart' hide classCodes;
 export 'src/gadget.dart';
 export 'src/rust/api/error.dart' show GadgetErrorKind, GadgetException;

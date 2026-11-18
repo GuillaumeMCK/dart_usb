@@ -189,65 +189,26 @@ void main() async {
     late InEndpoint tx;
     late OutEndpoint rx;
     late CustomFunction function;
+    late _Echo echo;
     late host.Interface interface;
-    late StreamSubscription<CustomEvent> events;
-    var stored = <int>[];
 
     setUp(() async {
       tx = InEndpoint();
       rx = OutEndpoint();
-      function = CustomFunction([
-        CustomInterface(
-          const Class.vendorSpecific(0, 0),
-          name: 'echo',
-          endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
-        ),
-      ]);
-      final enabled = Completer<void>();
-      StreamSubscription<void>? echo;
-      events = function.events.listen((event) async {
-        switch (event) {
-          case EnableEvent():
-            echo ??= rx.stream().asyncMap(tx.writeAndFlush).listen(null);
-            if (!enabled.isCompleted) enabled.complete();
-          case final ControlOutRequest r when r.setup.request == 1:
-            stored = await r.receive();
-          case final ControlInRequest r when r.setup.request == 1:
-            await r.send(stored);
-          case final ControlRequest r:
-            await r.halt();
-          default:
-        }
-      });
-      addTearDown(() async {
-        await echo?.cancel();
-        await events.cancel();
-      });
+      function = _echoFunction(tx, rx);
+      echo = _Echo(function, tx, rx); // listens before registration
+      addTearDown(echo.stop);
       final (_, device) = await _connect(udc!, [function]);
-      await enabled.future.timeout(const Duration(seconds: 5));
+      await echo.enabled.timeout(const Duration(seconds: 5));
       interface = await device.claimInterface(0);
     });
 
     test('bulk data comes back', () async {
-      final alt = interface.descriptor!;
-      final out = interface.endpointOut(
-        alt.endpoints.firstWhere((e) => e.direction == .out).address.value,
-      );
-      final in_ = interface.endpointIn(
-        alt.endpoints.firstWhere((e) => e.direction == .in_).address.value,
-      );
       for (final size in [1, 100, 4000]) {
         final payload = Uint8List.fromList([
           for (var i = 0; i < size; i++) i & 0xFF,
         ]);
-        await out.transfer(data: payload);
-        expect(
-          await in_.transfer(
-            length: 16384,
-            timeout: const Duration(seconds: 2),
-          ),
-          payload,
-        );
+        expect(await _roundTrip(interface, payload), payload);
       }
     });
 
@@ -290,5 +251,237 @@ void main() async {
         ),
       );
     });
+
+    test('a late answer fails promptly instead of hanging', () async {
+      await expectLater(
+        interface.controlIn(
+          const ControlIn(
+            type: .vendor,
+            recipient: .interface,
+            request: 3,
+            length: 8,
+          ),
+          timeout: const Duration(seconds: 8),
+        ),
+        throwsA(
+          isA<host.UsbException>().having(
+            (e) => e.kind,
+            'kind',
+            host.UsbErrorKind.transferStall,
+          ),
+        ),
+      );
+      final error = await echo.lateAnswer.future.timeout(
+        const Duration(seconds: 5),
+      );
+      expect(
+        error,
+        isA<GadgetException>().having(
+          (e) => e.kind,
+          'kind',
+          GadgetErrorKind.timedOut,
+        ),
+      );
+    }, timeout: const Timeout(Duration(seconds: 30)));
+
+    test('handlers can look up interface numbers without blocking', () async {
+      final watch = Stopwatch()..start();
+      final read = await interface.controlIn(
+        const ControlIn(
+          type: .vendor,
+          recipient: .interface,
+          request: 4,
+          length: 1,
+        ),
+      );
+      expect(read, [0]);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 1)));
+    });
+
+    test('answers are truncated to the length the host asked for', () async {
+      final read = await interface.controlIn(
+        const ControlIn(
+          type: .vendor,
+          recipient: .interface,
+          request: 5,
+          length: 4,
+        ),
+      );
+      expect(read, [0, 1, 2, 3]);
+    });
+
+    test('a request can only be answered once', () async {
+      await interface.controlIn(
+        const ControlIn(
+          type: .vendor,
+          recipient: .interface,
+          request: 6,
+          length: 1,
+        ),
+      );
+      expect(
+        await echo.secondAnswer.future.timeout(const Duration(seconds: 2)),
+        isA<StateError>(),
+      );
+    });
+
+    test('endpoint queries answer while a stream waits for data', () async {
+      expect(
+        await rx.maxPacketSize.timeout(const Duration(seconds: 1)),
+        greaterThan(0),
+      );
+      expect(
+        await rx.address.timeout(const Duration(seconds: 1)),
+        greaterThan(0),
+      );
+    });
+
+    test('one consumer at a time', () async {
+      expect(() => rx.read(), throwsStateError);
+      await expectLater(function.events.first, throwsStateError);
+    });
   });
+
+  group('custom function lifecycle', skip: skip, () {
+    test('a paused stream holds the host off', () async {
+      final rx = OutEndpoint(queueLength: 2);
+      final function = CustomFunction([
+        CustomInterface(
+          const Class.vendorSpecific(0, 0),
+          endpoints: [CustomEndpoint.bulk(rx)],
+        ),
+      ]);
+      final enabled = function.events.firstWhere((e) => e is EnableEvent);
+      final (_, device) = await _connect(udc!, [function]);
+      await enabled.timeout(const Duration(seconds: 5));
+      final interface = await device.claimInterface(0);
+      final out = interface.endpointOut(
+        interface.descriptor!.endpoints.single.address.value,
+      );
+
+      final received = <List<int>>[];
+      final subscription = rx.stream(chunkSize: 512).listen(received.add)
+        ..pause();
+      addTearDown(subscription.cancel);
+      // Paused before reading anything: no buffer is queued, so the host's
+      // transfer is NAKed until it times out.
+      await expectLater(
+        out.transfer(
+          data: [1, 2, 3],
+          timeout: const Duration(milliseconds: 500),
+        ),
+        throwsA(isA<host.UsbException>()),
+      );
+      subscription.resume();
+      await out.transfer(data: [4, 5, 6], timeout: const Duration(seconds: 2));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(received, [
+        [4, 5, 6],
+      ]);
+    });
+
+    test('a function can be registered again after removal', () async {
+      final tx = InEndpoint(), rx = OutEndpoint();
+      final function = _echoFunction(tx, rx);
+      for (var round = 0; round < 2; round++) {
+        final echo = _Echo(function, tx, rx);
+        final (registered, device) = await _connect(udc!, [function]);
+        await echo.enabled.timeout(const Duration(seconds: 5));
+        final interface = await device.claimInterface(0);
+        expect(await _roundTrip(interface, [round, 1, 2]), [round, 1, 2]);
+        await echo.stop();
+        await registered.remove();
+        expect(function.state, FunctionState.removed);
+        await Future<void>.delayed(
+          const Duration(milliseconds: 500),
+        ); // let the host see it go
+      }
+    }, timeout: const Timeout(Duration(seconds: 40)));
+  });
+}
+
+CustomFunction _echoFunction(InEndpoint tx, OutEndpoint rx) => CustomFunction([
+  CustomInterface(
+    const Class.vendorSpecific(0, 0),
+    name: 'echo',
+    endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
+  ),
+]);
+
+/// Sends [payload] out and reads the echo back.
+Future<List<int>> _roundTrip(
+  host.Interface interface,
+  List<int> payload,
+) async {
+  final alt = interface.descriptor!;
+  final out = interface.endpointOut(
+    alt.endpoints.firstWhere((e) => e.direction == .out).address.value,
+  );
+  final in_ = interface.endpointIn(
+    alt.endpoints.firstWhere((e) => e.direction == .in_).address.value,
+  );
+  await out.transfer(data: payload);
+  return in_.transfer(length: 16384, timeout: const Duration(seconds: 2));
+}
+
+/// The test gadget's behaviour: echoes bulk data, and answers vendor
+/// requests by number (1 store/load, 2 stall, 3 answer too late, 4 own
+/// interface number, 5 oversized answer, 6 answer twice).
+final class _Echo {
+  _Echo(this.function, this.tx, this.rx) {
+    _events = function.events.listen(_onEvent);
+  }
+
+  final CustomFunction function;
+  final InEndpoint tx;
+  final OutEndpoint rx;
+  late final StreamSubscription<CustomEvent> _events;
+  StreamSubscription<void>? _echo;
+  final _enabled = Completer<void>();
+  final lateAnswer = Completer<Object>();
+  final secondAnswer = Completer<Object>();
+  var _stored = <int>[];
+
+  Future<void> get enabled => _enabled.future;
+
+  Future<void> _onEvent(CustomEvent event) async {
+    switch (event) {
+      case EnableEvent():
+        _echo ??= rx.stream().asyncMap(tx.writeAndFlush).listen(null);
+        if (!_enabled.isCompleted) _enabled.complete();
+      case DisableEvent():
+        await _echo?.cancel();
+        _echo = null;
+      case final ControlOutRequest r when r.setup.request == 1:
+        _stored = await r.receive();
+      case final ControlInRequest r when r.setup.request == 1:
+        await r.send(_stored);
+      case final ControlInRequest r when r.setup.request == 3:
+        await Future<void>.delayed(const Duration(seconds: 5));
+        try {
+          await r.send([1]);
+        } on Object catch (e) {
+          lateAnswer.complete(e);
+        }
+      case final ControlInRequest r when r.setup.request == 4:
+        await r.send([function.interfaceNumber(0)]);
+      case final ControlInRequest r when r.setup.request == 5:
+        await r.send(List.generate(10, (i) => i));
+      case final ControlInRequest r when r.setup.request == 6:
+        await r.send([1]);
+        try {
+          await r.send([2]);
+        } on Object catch (e) {
+          secondAnswer.complete(e);
+        }
+      case final ControlRequest r:
+        await r.halt();
+      default:
+    }
+  }
+
+  Future<void> stop() async {
+    await _echo?.cancel();
+    await _events.cancel();
+  }
 }
