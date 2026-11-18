@@ -1,0 +1,18 @@
+[package]
+name = "dusb_native"
+version = "0.1.0"
+edition = "2021"
+description = "flutter_rust_bridge bindings for the nusb USB library"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+flutter_rust_bridge = "=2.13.0"
+futures-lite = "2"
+nusb = "0.2.9"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
