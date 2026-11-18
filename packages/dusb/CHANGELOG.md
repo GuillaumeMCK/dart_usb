@@ -1,5 +1,8 @@
 ## 0.1.0
 
+- Descriptors, speeds and control requests use the shared
+  [`usb_models`](../usb_models) types (re-exported).
+
 - Dart package bridging the Rust [nusb](https://github.com/kevinmehall/nusb)
   crate (0.2.9) with flutter_rust_bridge 2.13.0, built and bundled by a Dart
   build hook (no platform-specific build files).

@@ -14,8 +14,6 @@ thread and returns a `Future`.
 ## Example
 
 ```dart
-import 'dart:typed_data';
-
 import 'package:dusb/dusb.dart';
 
 Future<void> main() async {
@@ -28,14 +26,10 @@ Future<void> main() async {
   final device = await info.open();
   final interface = await device.claimInterface(0);
 
-  // Control transfers: value and index default to 0, the timeout to 1 second.
+  // Control requests come from package:usb_models (re-exported); value and
+  // index default to 0, the timeout to 1 second.
   await interface.controlOut(
-    request: ControlOut(
-      controlType: ControlType.vendor,
-      recipient: Recipient.device,
-      request: 0x10,
-      data: Uint8List.fromList([1, 2, 3, 4]),
-    ),
+    const ControlOut(type: .vendor, recipient: .device, request: 0x10, data: [1, 2, 3, 4]),
   );
 
   // Buffered bulk IO.
@@ -98,8 +92,8 @@ for (final config in device.configurations) {
     print(interface.altSettings.first.endpoints);
   }
 }
-final product = device.deviceDescriptor.productStringIndex;
-if (product != null) print(await device.getStringDescriptor(index: product));
+final product = device.deviceDescriptor.product;
+if (product.hasString) print(await device.getStringDescriptor(index: product.value));
 ```
 
 **Low-level transfers.** For full throughput, keep several transfers in

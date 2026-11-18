@@ -89,10 +89,11 @@ abstract class DeviceInfo implements RustOpaqueInterface {
 
   int get protocol;
 
+  /// Speed code; read it as `speed`.
+  int? get rawSpeed;
+
   /// The serial number, if the OS cached it.
   String? get serialNumber;
-
-  Speed? get speed;
 
   int get subclass;
 

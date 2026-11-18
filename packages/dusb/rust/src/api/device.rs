@@ -7,10 +7,9 @@ use flutter_rust_bridge::frb;
 use nusb::transfer::{Bulk, In, Interrupt, Out};
 use nusb::MaybeFuture;
 
-use super::descriptors::{ConfigurationDescriptor, DeviceDescriptor, InterfaceDescriptor};
 use super::endpoint::{InEndpoint, InKind, OutEndpoint, OutKind};
 use super::error::{UsbException, UsbErrorKind};
-use super::types::{timeout_or_default, ControlIn, ControlOut, Speed, US_ENGLISH};
+use super::types::{control_kind, speed_code, timeout_or_default, US_ENGLISH};
 
 /// An opened USB device. The OS handle closes once this object and every
 /// interface claimed from it are garbage collected or disposed.
@@ -43,26 +42,30 @@ impl Device {
         Ok(self.0.attach_kernel_driver(interface_number)?)
     }
 
+    /// The 18-byte device descriptor. Parsed as `deviceDescriptor`.
     #[frb(sync, getter)]
-    pub fn device_descriptor(&self) -> DeviceDescriptor {
-        self.0.device_descriptor().into()
+    pub fn raw_device_descriptor(&self) -> Vec<u8> {
+        self.0.device_descriptor().as_bytes().to_vec()
     }
 
+    /// Speed code; read it as `speed`.
     #[frb(sync, getter)]
-    pub fn speed(&self) -> Option<Speed> {
-        self.0.speed().and_then(Speed::from_nusb)
+    pub fn raw_speed(&self) -> Option<u8> {
+        self.0.speed().and_then(speed_code)
     }
 
-    /// The active configuration's descriptor. Throws `notConfigured` if the
-    /// device is unconfigured.
+    /// The active configuration's descriptors. Parsed as
+    /// `activeConfiguration()`; throws `notConfigured` if the device is
+    /// unconfigured.
     #[frb(sync)]
-    pub fn active_configuration(&self) -> Result<ConfigurationDescriptor, UsbException> {
-        Ok(self.0.active_configuration()?.into())
+    pub fn raw_active_configuration(&self) -> Result<Vec<u8>, UsbException> {
+        Ok(self.0.active_configuration()?.as_bytes().to_vec())
     }
 
+    /// Each configuration's descriptors. Parsed as `configurations`.
     #[frb(sync, getter)]
-    pub fn configurations(&self) -> Vec<ConfigurationDescriptor> {
-        self.0.configurations().map(Into::into).collect()
+    pub fn raw_configurations(&self) -> Vec<Vec<u8>> {
+        self.0.configurations().map(|c| c.as_bytes().to_vec()).collect()
     }
 
     /// Sets the configuration (`bConfigurationValue`), or 0 to unconfigure.
@@ -118,31 +121,55 @@ impl Device {
             .wait()?)
     }
 
-    /// IN control transfer on the default endpoint; [timeout] defaults to 1
-    /// second. Not supported on Windows:
-    /// claim an interface and use [Interface.controlIn].
-    pub fn control_in(&self, request: ControlIn, timeout: Option<Duration>) -> Result<Vec<u8>, UsbException> {
+    /// IN control transfer from setup fields; use `controlIn`. Not
+    /// supported on Windows: claim an interface and use its `controlIn`.
+    pub fn control_in_raw(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        index: u16,
+        length: u16,
+        timeout: Option<Duration>,
+    ) -> Result<Vec<u8>, UsbException> {
         #[cfg(target_os = "windows")]
         {
-            let _ = (request, timeout);
+            let _ = (request_type, request, value, index, length, timeout);
             Err(UsbException::new(UsbErrorKind::Unsupported, "use Interface.controlIn on Windows"))
         }
         #[cfg(not(target_os = "windows"))]
-        Ok(self.0.control_in((&request).into(), timeout_or_default(timeout)).wait()?)
+        Ok(self.0.control_in(control_in(request_type, request, value, index, length)?, timeout_or_default(timeout)).wait()?)
     }
 
-    /// OUT control transfer on the default endpoint; [timeout] defaults to 1
-    /// second. Not supported on Windows:
-    /// claim an interface and use [Interface.controlOut].
-    pub fn control_out(&self, request: ControlOut, timeout: Option<Duration>) -> Result<(), UsbException> {
+    /// OUT control transfer from setup fields; use `controlOut`. Not
+    /// supported on Windows: claim an interface and use its `controlOut`.
+    pub fn control_out_raw(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        index: u16,
+        data: Vec<u8>,
+        timeout: Option<Duration>,
+    ) -> Result<(), UsbException> {
         #[cfg(target_os = "windows")]
         {
-            let _ = (request, timeout);
+            let _ = (request_type, request, value, index, data, timeout);
             Err(UsbException::new(UsbErrorKind::Unsupported, "use Interface.controlOut on Windows"))
         }
         #[cfg(not(target_os = "windows"))]
-        Ok(self.0.control_out(request.as_nusb(), timeout_or_default(timeout)).wait()?)
+        Ok(self.0.control_out(control_out(request_type, request, value, index, &data)?, timeout_or_default(timeout)).wait()?)
     }
+}
+
+fn control_in(request_type: u8, request: u8, value: u16, index: u16, length: u16) -> Result<nusb::transfer::ControlIn, UsbException> {
+    let (control_type, recipient) = control_kind(request_type)?;
+    Ok(nusb::transfer::ControlIn { control_type, recipient, request, value, index, length })
+}
+
+fn control_out(request_type: u8, request: u8, value: u16, index: u16, data: &[u8]) -> Result<nusb::transfer::ControlOut<'_>, UsbException> {
+    let (control_type, recipient) = control_kind(request_type)?;
+    Ok(nusb::transfer::ControlOut { control_type, recipient, request, value, index, data })
 }
 
 /// A claimed interface. Released once this object and its endpoints are
@@ -167,27 +194,46 @@ impl Interface {
         Ok(self.0.set_alt_setting(alt_setting).wait()?)
     }
 
-    /// The descriptors of every alternate setting of this interface.
+    /// Each alternate setting's descriptors, in the active configuration.
+    /// Parsed as `descriptors`.
     #[frb(sync, getter)]
-    pub fn descriptors(&self) -> Vec<InterfaceDescriptor> {
-        self.0.descriptors().map(Into::into).collect()
+    pub fn raw_descriptors(&self) -> Vec<Vec<u8>> {
+        self.0.descriptors().map(|d| d.as_bytes().to_vec()).collect()
     }
 
-    /// The descriptor of the current alternate setting.
+    /// The current alternate setting's descriptors. Parsed as `descriptor`.
     #[frb(sync, getter)]
-    pub fn descriptor(&self) -> Option<InterfaceDescriptor> {
-        self.0.descriptor().map(Into::into)
+    pub fn raw_descriptor(&self) -> Option<Vec<u8>> {
+        self.0.descriptor().map(|d| d.as_bytes().to_vec())
     }
 
-    /// IN control transfer. On Windows, for `Recipient.interface`, the low
-    /// byte of `index` must be this interface's number.
-    pub fn control_in(&self, request: ControlIn, timeout: Option<Duration>) -> Result<Vec<u8>, UsbException> {
-        Ok(self.0.control_in((&request).into(), timeout_or_default(timeout)).wait()?)
+    /// IN control transfer from setup fields; use `controlIn`. On Windows,
+    /// for interface recipients, the low byte of `index` must be this
+    /// interface's number.
+    pub fn control_in_raw(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        index: u16,
+        length: u16,
+        timeout: Option<Duration>,
+    ) -> Result<Vec<u8>, UsbException> {
+        Ok(self.0.control_in(control_in(request_type, request, value, index, length)?, timeout_or_default(timeout)).wait()?)
     }
 
-    /// OUT control transfer. Same Windows restriction as [controlIn].
-    pub fn control_out(&self, request: ControlOut, timeout: Option<Duration>) -> Result<(), UsbException> {
-        Ok(self.0.control_out(request.as_nusb(), timeout_or_default(timeout)).wait()?)
+    /// OUT control transfer from setup fields; use `controlOut`. Same
+    /// Windows restriction as `controlIn`.
+    pub fn control_out_raw(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        index: u16,
+        data: Vec<u8>,
+        timeout: Option<Duration>,
+    ) -> Result<(), UsbException> {
+        Ok(self.0.control_out(control_out(request_type, request, value, index, &data)?, timeout_or_default(timeout)).wait()?)
     }
 
     /// Opens a bulk or interrupt IN endpoint for exclusive use.

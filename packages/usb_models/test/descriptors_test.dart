@@ -389,6 +389,22 @@ void main() {
     });
   });
 
+  test('InterfaceAltSetting.parse stops at the next interface', () {
+    final alt = InterfaceAltSetting.parse([
+      0x09, 0x04, 0x02, 0x01, 0x01, 0xff, 0x00, 0x00, 0x00, //
+      0x07, 0x05, 0x81, 0x02, 0x00, 0x02, 0x00, //
+      0x09, 0x04, 0x03, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00,
+    ]);
+    expect(alt.interfaceNumber.value, 2);
+    expect(alt.alternateSetting.value, 1);
+    expect(alt.endpoints.single.maxPacketSize.size, 512);
+    expect(
+      () =>
+          InterfaceAltSetting.parse([0x07, 0x05, 0x81, 0x02, 0x00, 0x02, 0x00]),
+      throwsFormatException,
+    );
+  });
+
   group('string descriptors', () {
     test('round trip', () {
       expect(StringDescriptor.decode(StringDescriptor.encode('ABé')), 'ABé');

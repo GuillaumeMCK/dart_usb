@@ -15,8 +15,7 @@ void main() {
   test('lists devices and reads descriptors', () async {
     for (final info in await usb.listDevices()) {
       final device = await info.open();
-      expect(device.deviceDescriptor.vendorId, info.vendorId);
-      expect(device.deviceDescriptor.productId, info.productId);
+      expect(device.deviceDescriptor.id, Id(vendor: info.vendorId, product: info.productId));
       expect(device.configurations, isNotEmpty);
     }
   });

@@ -4,39 +4,42 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import 'descriptors.dart';
 import 'endpoint.dart';
 import 'error.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-import 'types.dart';
-
-// These functions are ignored because they are not marked as `pub`: `transfer_type`, `unsupported_endpoint`
+// These functions are ignored because they are not marked as `pub`: `control_in`, `control_out`, `transfer_type`, `unsupported_endpoint`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Device>>
 abstract class Device implements RustOpaqueInterface {
-  /// The active configuration's descriptor. Throws `notConfigured` if the
-  /// device is unconfigured.
-  ConfigurationDescriptor activeConfiguration();
-
   /// Reattaches the kernel driver to an interface (Linux only).
   void attachKernelDriver(int interfaceNumber);
 
   /// Opens an interface of the device and claims it for exclusive use.
   Future<Interface> claimInterface(int interfaceNumber);
 
-  List<ConfigurationDescriptor> get configurations;
+  /// IN control transfer from setup fields; use `controlIn`. Not
+  /// supported on Windows: claim an interface and use its `controlIn`.
+  Future<Uint8List> controlInRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
+    Duration? timeout,
+  });
 
-  /// IN control transfer on the default endpoint; [timeout] defaults to 1
-  /// second. Not supported on Windows:
-  /// claim an interface and use [Interface.controlIn].
-  Future<Uint8List> controlIn({required ControlIn request, Duration? timeout});
-
-  /// OUT control transfer on the default endpoint; [timeout] defaults to 1
-  /// second. Not supported on Windows:
-  /// claim an interface and use [Interface.controlOut].
-  Future<void> controlOut({required ControlOut request, Duration? timeout});
+  /// OUT control transfer from setup fields; use `controlOut`. Not
+  /// supported on Windows: claim an interface and use its `controlOut`.
+  Future<void> controlOutRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
+    Duration? timeout,
+  });
 
   /// Detaches kernel drivers, then claims the interface. Kernel drivers
   /// can only be detached on Linux; elsewhere this is [claimInterface].
@@ -44,8 +47,6 @@ abstract class Device implements RustOpaqueInterface {
 
   /// Detaches the kernel driver from an interface (Linux only).
   void detachKernelDriver(int interfaceNumber);
-
-  DeviceDescriptor get deviceDescriptor;
 
   /// Requests a descriptor from the device. [languageId] is only used for
   /// string descriptors. [timeout] defaults to 1 second.
@@ -67,6 +68,20 @@ abstract class Device implements RustOpaqueInterface {
   /// The language IDs supported for string descriptors.
   Future<Uint16List> getStringDescriptorSupportedLanguages({Duration? timeout});
 
+  /// The active configuration's descriptors. Parsed as
+  /// `activeConfiguration()`; throws `notConfigured` if the device is
+  /// unconfigured.
+  Uint8List rawActiveConfiguration();
+
+  /// Each configuration's descriptors. Parsed as `configurations`.
+  List<Uint8List> get rawConfigurations;
+
+  /// The 18-byte device descriptor. Parsed as `deviceDescriptor`.
+  Uint8List get rawDeviceDescriptor;
+
+  /// Speed code; read it as `speed`.
+  int? get rawSpeed;
+
   /// Resets the device, forcing it to re-enumerate. Not supported on
   /// Windows.
   Future<void> reset();
@@ -74,26 +89,34 @@ abstract class Device implements RustOpaqueInterface {
   /// Sets the configuration (`bConfigurationValue`), or 0 to unconfigure.
   /// Not supported on Windows.
   Future<void> setConfiguration(int configuration);
-
-  Speed? get speed;
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Interface>>
 abstract class Interface implements RustOpaqueInterface {
   int get altSetting;
 
-  /// IN control transfer. On Windows, for `Recipient.interface`, the low
-  /// byte of `index` must be this interface's number.
-  Future<Uint8List> controlIn({required ControlIn request, Duration? timeout});
+  /// IN control transfer from setup fields; use `controlIn`. On Windows,
+  /// for interface recipients, the low byte of `index` must be this
+  /// interface's number.
+  Future<Uint8List> controlInRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
+    Duration? timeout,
+  });
 
-  /// OUT control transfer. Same Windows restriction as [controlIn].
-  Future<void> controlOut({required ControlOut request, Duration? timeout});
-
-  /// The descriptor of the current alternate setting.
-  InterfaceDescriptor? get descriptor;
-
-  /// The descriptors of every alternate setting of this interface.
-  List<InterfaceDescriptor> get descriptors;
+  /// OUT control transfer from setup fields; use `controlOut`. Same
+  /// Windows restriction as `controlIn`.
+  Future<void> controlOutRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
+    Duration? timeout,
+  });
 
   /// Opens a bulk or interrupt IN endpoint for exclusive use.
   InEndpoint endpointIn(int address);
@@ -102,6 +125,13 @@ abstract class Interface implements RustOpaqueInterface {
   OutEndpoint endpointOut(int address);
 
   int get interfaceNumber;
+
+  /// The current alternate setting's descriptors. Parsed as `descriptor`.
+  Uint8List? get rawDescriptor;
+
+  /// Each alternate setting's descriptors, in the active configuration.
+  /// Parsed as `descriptors`.
+  List<Uint8List> get rawDescriptors;
 
   /// Selects an alternate setting. All endpoints must be closed first.
   Future<void> setAltSetting(int altSetting);

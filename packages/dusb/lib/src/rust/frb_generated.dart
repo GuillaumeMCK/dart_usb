@@ -3,7 +3,6 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/descriptors.dart';
 import 'api/device.dart';
 import 'api/endpoint.dart';
 import 'api/enumeration.dart';
@@ -74,7 +73,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -413308745;
+  int get rustContentHash => -1563646552;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -141,9 +140,9 @@ abstract class RustLibApi extends BaseApi {
 
   int crateApiEnumerationDeviceInfoProtocol({required DeviceInfo that});
 
-  String? crateApiEnumerationDeviceInfoSerialNumber({required DeviceInfo that});
+  int? crateApiEnumerationDeviceInfoRawSpeed({required DeviceInfo that});
 
-  Speed? crateApiEnumerationDeviceInfoSpeed({required DeviceInfo that});
+  String? crateApiEnumerationDeviceInfoSerialNumber({required DeviceInfo that});
 
   int crateApiEnumerationDeviceInfoSubclass({required DeviceInfo that});
 
@@ -155,10 +154,6 @@ abstract class RustLibApi extends BaseApi {
 
   int crateApiEnumerationDeviceInfoVendorId({required DeviceInfo that});
 
-  ConfigurationDescriptor crateApiDeviceDeviceActiveConfiguration({
-    required Device that,
-  });
-
   void crateApiDeviceDeviceAttachKernelDriver({
     required Device that,
     required int interfaceNumber,
@@ -169,19 +164,23 @@ abstract class RustLibApi extends BaseApi {
     required int interfaceNumber,
   });
 
-  List<ConfigurationDescriptor> crateApiDeviceDeviceConfigurations({
+  Future<Uint8List> crateApiDeviceDeviceControlInRaw({
     required Device that,
-  });
-
-  Future<Uint8List> crateApiDeviceDeviceControlIn({
-    required Device that,
-    required ControlIn request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
   });
 
-  Future<void> crateApiDeviceDeviceControlOut({
+  Future<void> crateApiDeviceDeviceControlOutRaw({
     required Device that,
-    required ControlOut request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
     Duration? timeout,
   });
 
@@ -194,8 +193,6 @@ abstract class RustLibApi extends BaseApi {
     required Device that,
     required int interfaceNumber,
   });
-
-  DeviceDescriptor crateApiDeviceDeviceDeviceDescriptor({required Device that});
 
   Future<Uint8List> crateApiDeviceDeviceGetDescriptor({
     required Device that,
@@ -217,14 +214,20 @@ abstract class RustLibApi extends BaseApi {
     Duration? timeout,
   });
 
+  Uint8List crateApiDeviceDeviceRawActiveConfiguration({required Device that});
+
+  List<Uint8List> crateApiDeviceDeviceRawConfigurations({required Device that});
+
+  Uint8List crateApiDeviceDeviceRawDeviceDescriptor({required Device that});
+
+  int? crateApiDeviceDeviceRawSpeed({required Device that});
+
   Future<void> crateApiDeviceDeviceReset({required Device that});
 
   Future<void> crateApiDeviceDeviceSetConfiguration({
     required Device that,
     required int configuration,
   });
-
-  Speed? crateApiDeviceDeviceSpeed({required Device that});
 
   void crateApiEndpointEndpointReaderCancelAll({required EndpointReader that});
 
@@ -303,24 +306,24 @@ abstract class RustLibApi extends BaseApi {
 
   int crateApiDeviceInterfaceAltSetting({required Interface that});
 
-  Future<Uint8List> crateApiDeviceInterfaceControlIn({
+  Future<Uint8List> crateApiDeviceInterfaceControlInRaw({
     required Interface that,
-    required ControlIn request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
   });
 
-  Future<void> crateApiDeviceInterfaceControlOut({
+  Future<void> crateApiDeviceInterfaceControlOutRaw({
     required Interface that,
-    required ControlOut request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
     Duration? timeout,
-  });
-
-  InterfaceDescriptor? crateApiDeviceInterfaceDescriptor({
-    required Interface that,
-  });
-
-  List<InterfaceDescriptor> crateApiDeviceInterfaceDescriptors({
-    required Interface that,
   });
 
   InEndpoint crateApiDeviceInterfaceEndpointIn({
@@ -334,6 +337,12 @@ abstract class RustLibApi extends BaseApi {
   });
 
   int crateApiDeviceInterfaceInterfaceNumber({required Interface that});
+
+  Uint8List? crateApiDeviceInterfaceRawDescriptor({required Interface that});
+
+  List<Uint8List> crateApiDeviceInterfaceRawDescriptors({
+    required Interface that,
+  });
 
   Future<void> crateApiDeviceInterfaceSetAltSetting({
     required Interface that,
@@ -1062,6 +1071,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "DeviceInfo_protocol", argNames: ["that"]);
 
   @override
+  int? crateApiEnumerationDeviceInfoRawSpeed({required DeviceInfo that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDeviceInfo(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_u_8,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiEnumerationDeviceInfoRawSpeedConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEnumerationDeviceInfoRawSpeedConstMeta =>
+      const TaskConstMeta(
+        debugName: "DeviceInfo_raw_speed",
+        argNames: ["that"],
+      );
+
+  @override
   String? crateApiEnumerationDeviceInfoSerialNumber({
     required DeviceInfo that,
   }) {
@@ -1073,7 +1111,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_String,
@@ -1091,32 +1129,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "DeviceInfo_serial_number",
         argNames: ["that"],
       );
-
-  @override
-  Speed? crateApiEnumerationDeviceInfoSpeed({required DeviceInfo that}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDeviceInfo(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_speed,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiEnumerationDeviceInfoSpeedConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiEnumerationDeviceInfoSpeedConstMeta =>
-      const TaskConstMeta(debugName: "DeviceInfo_speed", argNames: ["that"]);
 
   @override
   int crateApiEnumerationDeviceInfoSubclass({required DeviceInfo that}) {
@@ -1261,37 +1273,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  ConfigurationDescriptor crateApiDeviceDeviceActiveConfiguration({
-    required Device that,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_configuration_descriptor,
-          decodeErrorData: sse_decode_usb_exception,
-        ),
-        constMeta: kCrateApiDeviceDeviceActiveConfigurationConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceDeviceActiveConfigurationConstMeta =>
-      const TaskConstMeta(
-        debugName: "Device_active_configuration",
-        argNames: ["that"],
-      );
-
-  @override
   void crateApiDeviceDeviceAttachKernelDriver({
     required Device that,
     required int interfaceNumber,
@@ -1305,7 +1286,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_u_8(interfaceNumber, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1341,7 +1322,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1364,40 +1345,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  List<ConfigurationDescriptor> crateApiDeviceDeviceConfigurations({
+  Future<Uint8List> crateApiDeviceDeviceControlInRaw({
     required Device that,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_configuration_descriptor,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiDeviceDeviceConfigurationsConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceDeviceConfigurationsConstMeta =>
-      const TaskConstMeta(
-        debugName: "Device_configurations",
-        argNames: ["that"],
-      );
-
-  @override
-  Future<Uint8List> crateApiDeviceDeviceControlIn({
-    required Device that,
-    required ControlIn request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
   }) {
     return handler.executeNormal(
@@ -1408,12 +1362,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_control_in(request, serializer);
+          sse_encode_u_8(requestType, serializer);
+          sse_encode_u_8(request, serializer);
+          sse_encode_u_16(value, serializer);
+          sse_encode_u_16(index, serializer);
+          sse_encode_u_16(length, serializer);
           sse_encode_opt_box_autoadd_Chrono_Duration(timeout, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1421,23 +1379,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
           decodeErrorData: sse_decode_usb_exception,
         ),
-        constMeta: kCrateApiDeviceDeviceControlInConstMeta,
-        argValues: [that, request, timeout],
+        constMeta: kCrateApiDeviceDeviceControlInRawConstMeta,
+        argValues: [that, requestType, request, value, index, length, timeout],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDeviceDeviceControlInConstMeta =>
+  TaskConstMeta get kCrateApiDeviceDeviceControlInRawConstMeta =>
       const TaskConstMeta(
-        debugName: "Device_control_in",
-        argNames: ["that", "request", "timeout"],
+        debugName: "Device_control_in_raw",
+        argNames: [
+          "that",
+          "requestType",
+          "request",
+          "value",
+          "index",
+          "length",
+          "timeout",
+        ],
       );
 
   @override
-  Future<void> crateApiDeviceDeviceControlOut({
+  Future<void> crateApiDeviceDeviceControlOutRaw({
     required Device that,
-    required ControlOut request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
     Duration? timeout,
   }) {
     return handler.executeNormal(
@@ -1448,12 +1418,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_control_out(request, serializer);
+          sse_encode_u_8(requestType, serializer);
+          sse_encode_u_8(request, serializer);
+          sse_encode_u_16(value, serializer);
+          sse_encode_u_16(index, serializer);
+          sse_encode_list_prim_u_8_loose(data, serializer);
           sse_encode_opt_box_autoadd_Chrono_Duration(timeout, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1461,17 +1435,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_usb_exception,
         ),
-        constMeta: kCrateApiDeviceDeviceControlOutConstMeta,
-        argValues: [that, request, timeout],
+        constMeta: kCrateApiDeviceDeviceControlOutRawConstMeta,
+        argValues: [that, requestType, request, value, index, data, timeout],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDeviceDeviceControlOutConstMeta =>
+  TaskConstMeta get kCrateApiDeviceDeviceControlOutRawConstMeta =>
       const TaskConstMeta(
-        debugName: "Device_control_out",
-        argNames: ["that", "request", "timeout"],
+        debugName: "Device_control_out_raw",
+        argNames: [
+          "that",
+          "requestType",
+          "request",
+          "value",
+          "index",
+          "data",
+          "timeout",
+        ],
       );
 
   @override
@@ -1491,7 +1473,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1527,7 +1509,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_u_8(interfaceNumber, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 33)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1544,37 +1526,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "Device_detach_kernel_driver",
         argNames: ["that", "interfaceNumber"],
-      );
-
-  @override
-  DeviceDescriptor crateApiDeviceDeviceDeviceDescriptor({
-    required Device that,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_device_descriptor,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiDeviceDeviceDeviceDescriptorConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceDeviceDeviceDescriptorConstMeta =>
-      const TaskConstMeta(
-        debugName: "Device_device_descriptor",
-        argNames: ["that"],
       );
 
   @override
@@ -1600,7 +1551,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1642,7 +1593,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1680,7 +1631,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1704,6 +1655,121 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Uint8List crateApiDeviceDeviceRawActiveConfiguration({required Device that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 37)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_usb_exception,
+        ),
+        constMeta: kCrateApiDeviceDeviceRawActiveConfigurationConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceDeviceRawActiveConfigurationConstMeta =>
+      const TaskConstMeta(
+        debugName: "Device_raw_active_configuration",
+        argNames: ["that"],
+      );
+
+  @override
+  List<Uint8List> crateApiDeviceDeviceRawConfigurations({
+    required Device that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceDeviceRawConfigurationsConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceDeviceRawConfigurationsConstMeta =>
+      const TaskConstMeta(
+        debugName: "Device_raw_configurations",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List crateApiDeviceDeviceRawDeviceDescriptor({required Device that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceDeviceRawDeviceDescriptorConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceDeviceRawDeviceDescriptorConstMeta =>
+      const TaskConstMeta(
+        debugName: "Device_raw_device_descriptor",
+        argNames: ["that"],
+      );
+
+  @override
+  int? crateApiDeviceDeviceRawSpeed({required Device that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 40)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_u_8,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceDeviceRawSpeedConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceDeviceRawSpeedConstMeta =>
+      const TaskConstMeta(debugName: "Device_raw_speed", argNames: ["that"]);
+
+  @override
   Future<void> crateApiDeviceDeviceReset({required Device that}) {
     return handler.executeNormal(
       NormalTask(
@@ -1716,7 +1782,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1751,7 +1817,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1771,32 +1837,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "Device_set_configuration",
         argNames: ["that", "configuration"],
       );
-
-  @override
-  Speed? crateApiDeviceDeviceSpeed({required Device that}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDevice(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 42)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_speed,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiDeviceDeviceSpeedConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceDeviceSpeedConstMeta =>
-      const TaskConstMeta(debugName: "Device_speed", argNames: ["that"]);
 
   @override
   void crateApiEndpointEndpointReaderCancelAll({required EndpointReader that}) {
@@ -2504,9 +2544,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<Uint8List> crateApiDeviceInterfaceControlIn({
+  Future<Uint8List> crateApiDeviceInterfaceControlInRaw({
     required Interface that,
-    required ControlIn request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
   }) {
     return handler.executeNormal(
@@ -2517,7 +2561,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_control_in(request, serializer);
+          sse_encode_u_8(requestType, serializer);
+          sse_encode_u_8(request, serializer);
+          sse_encode_u_16(value, serializer);
+          sse_encode_u_16(index, serializer);
+          sse_encode_u_16(length, serializer);
           sse_encode_opt_box_autoadd_Chrono_Duration(timeout, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -2530,23 +2578,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
           decodeErrorData: sse_decode_usb_exception,
         ),
-        constMeta: kCrateApiDeviceInterfaceControlInConstMeta,
-        argValues: [that, request, timeout],
+        constMeta: kCrateApiDeviceInterfaceControlInRawConstMeta,
+        argValues: [that, requestType, request, value, index, length, timeout],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDeviceInterfaceControlInConstMeta =>
+  TaskConstMeta get kCrateApiDeviceInterfaceControlInRawConstMeta =>
       const TaskConstMeta(
-        debugName: "Interface_control_in",
-        argNames: ["that", "request", "timeout"],
+        debugName: "Interface_control_in_raw",
+        argNames: [
+          "that",
+          "requestType",
+          "request",
+          "value",
+          "index",
+          "length",
+          "timeout",
+        ],
       );
 
   @override
-  Future<void> crateApiDeviceInterfaceControlOut({
+  Future<void> crateApiDeviceInterfaceControlOutRaw({
     required Interface that,
-    required ControlOut request,
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
     Duration? timeout,
   }) {
     return handler.executeNormal(
@@ -2557,7 +2617,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_control_out(request, serializer);
+          sse_encode_u_8(requestType, serializer);
+          sse_encode_u_8(request, serializer);
+          sse_encode_u_16(value, serializer);
+          sse_encode_u_16(index, serializer);
+          sse_encode_list_prim_u_8_loose(data, serializer);
           sse_encode_opt_box_autoadd_Chrono_Duration(timeout, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -2570,79 +2634,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_usb_exception,
         ),
-        constMeta: kCrateApiDeviceInterfaceControlOutConstMeta,
-        argValues: [that, request, timeout],
+        constMeta: kCrateApiDeviceInterfaceControlOutRawConstMeta,
+        argValues: [that, requestType, request, value, index, data, timeout],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDeviceInterfaceControlOutConstMeta =>
+  TaskConstMeta get kCrateApiDeviceInterfaceControlOutRawConstMeta =>
       const TaskConstMeta(
-        debugName: "Interface_control_out",
-        argNames: ["that", "request", "timeout"],
-      );
-
-  @override
-  InterfaceDescriptor? crateApiDeviceInterfaceDescriptor({
-    required Interface that,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerInterface(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 66)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_opt_box_autoadd_interface_descriptor,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiDeviceInterfaceDescriptorConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceInterfaceDescriptorConstMeta =>
-      const TaskConstMeta(
-        debugName: "Interface_descriptor",
-        argNames: ["that"],
-      );
-
-  @override
-  List<InterfaceDescriptor> crateApiDeviceInterfaceDescriptors({
-    required Interface that,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerInterface(
-            that,
-            serializer,
-          );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 67)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_interface_descriptor,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiDeviceInterfaceDescriptorsConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiDeviceInterfaceDescriptorsConstMeta =>
-      const TaskConstMeta(
-        debugName: "Interface_descriptors",
-        argNames: ["that"],
+        debugName: "Interface_control_out_raw",
+        argNames: [
+          "that",
+          "requestType",
+          "request",
+          "value",
+          "index",
+          "data",
+          "timeout",
+        ],
       );
 
   @override
@@ -2659,7 +2669,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_u_8(address, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 68)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 66)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -2693,7 +2703,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_u_8(address, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 69)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 67)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -2723,7 +2733,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 70)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 68)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_u_8,
@@ -2739,6 +2749,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiDeviceInterfaceInterfaceNumberConstMeta =>
       const TaskConstMeta(
         debugName: "Interface_interface_number",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List? crateApiDeviceInterfaceRawDescriptor({required Interface that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerInterface(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 69)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceInterfaceRawDescriptorConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceInterfaceRawDescriptorConstMeta =>
+      const TaskConstMeta(
+        debugName: "Interface_raw_descriptor",
+        argNames: ["that"],
+      );
+
+  @override
+  List<Uint8List> crateApiDeviceInterfaceRawDescriptors({
+    required Interface that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerInterface(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 70)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceInterfaceRawDescriptorsConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceInterfaceRawDescriptorsConstMeta =>
+      const TaskConstMeta(
+        debugName: "Interface_raw_descriptors",
         argNames: ["that"],
       );
 
@@ -3550,18 +3620,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ControlIn dco_decode_box_autoadd_control_in(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_control_in(raw);
-  }
-
-  @protected
-  ControlOut dco_decode_box_autoadd_control_out(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_control_out(raw);
-  }
-
-  @protected
   DeviceId dco_decode_box_autoadd_device_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_device_id(raw);
@@ -3586,21 +3644,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  InterfaceDescriptor dco_decode_box_autoadd_interface_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_interface_descriptor(raw);
-  }
-
-  @protected
   OutCompletion dco_decode_box_autoadd_out_completion(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_out_completion(raw);
-  }
-
-  @protected
-  Speed dco_decode_box_autoadd_speed(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_speed(raw);
   }
 
   @protected
@@ -3648,84 +3694,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ConfigurationDescriptor dco_decode_configuration_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
-    return ConfigurationDescriptor(
-      configurationValue: dco_decode_u_8(arr[0]),
-      numInterfaces: dco_decode_u_8(arr[1]),
-      attributes: dco_decode_u_8(arr[2]),
-      maxPower: dco_decode_u_8(arr[3]),
-      stringIndex: dco_decode_opt_box_autoadd_u_8(arr[4]),
-      interfaces: dco_decode_list_interface_descriptors(arr[5]),
-      raw: dco_decode_list_prim_u_8_strict(arr[6]),
-    );
-  }
-
-  @protected
-  ControlIn dco_decode_control_in(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return ControlIn(
-      controlType: dco_decode_control_type(arr[0]),
-      recipient: dco_decode_recipient(arr[1]),
-      request: dco_decode_u_8(arr[2]),
-      value: dco_decode_u_16(arr[3]),
-      index: dco_decode_u_16(arr[4]),
-      length: dco_decode_u_16(arr[5]),
-    );
-  }
-
-  @protected
-  ControlOut dco_decode_control_out(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return ControlOut(
-      controlType: dco_decode_control_type(arr[0]),
-      recipient: dco_decode_recipient(arr[1]),
-      request: dco_decode_u_8(arr[2]),
-      value: dco_decode_u_16(arr[3]),
-      index: dco_decode_u_16(arr[4]),
-      data: dco_decode_list_prim_u_8_strict(arr[5]),
-    );
-  }
-
-  @protected
-  ControlType dco_decode_control_type(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return ControlType.values[raw as int];
-  }
-
-  @protected
-  DeviceDescriptor dco_decode_device_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 13)
-      throw Exception('unexpected arr length: expect 13 but see ${arr.length}');
-    return DeviceDescriptor(
-      usbVersion: dco_decode_u_16(arr[0]),
-      deviceClass: dco_decode_u_8(arr[1]),
-      subclass: dco_decode_u_8(arr[2]),
-      protocol: dco_decode_u_8(arr[3]),
-      maxPacketSize0: dco_decode_u_8(arr[4]),
-      vendorId: dco_decode_u_16(arr[5]),
-      productId: dco_decode_u_16(arr[6]),
-      deviceVersion: dco_decode_u_16(arr[7]),
-      manufacturerStringIndex: dco_decode_opt_box_autoadd_u_8(arr[8]),
-      productStringIndex: dco_decode_opt_box_autoadd_u_8(arr[9]),
-      serialNumberStringIndex: dco_decode_opt_box_autoadd_u_8(arr[10]),
-      numConfigurations: dco_decode_u_8(arr[11]),
-      raw: dco_decode_list_prim_u_8_strict(arr[12]),
-    );
-  }
-
-  @protected
   DeviceId dco_decode_device_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -3747,29 +3715,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       subclass: dco_decode_opt_box_autoadd_u_8(arr[3]),
       protocol: dco_decode_opt_box_autoadd_u_8(arr[4]),
       serialNumber: dco_decode_opt_String(arr[5]),
-    );
-  }
-
-  @protected
-  Direction dco_decode_direction(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return Direction.values[raw as int];
-  }
-
-  @protected
-  EndpointDescriptor dco_decode_endpoint_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
-    return EndpointDescriptor(
-      address: dco_decode_u_8(arr[0]),
-      direction: dco_decode_direction(arr[1]),
-      transferType: dco_decode_transfer_type(arr[2]),
-      maxPacketSize: dco_decode_u_32(arr[3]),
-      packetsPerMicroframe: dco_decode_u_8(arr[4]),
-      interval: dco_decode_u_8(arr[5]),
-      raw: dco_decode_list_prim_u_8_strict(arr[6]),
     );
   }
 
@@ -3818,37 +3763,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  InterfaceDescriptor dco_decode_interface_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
-    return InterfaceDescriptor(
-      interfaceNumber: dco_decode_u_8(arr[0]),
-      alternateSetting: dco_decode_u_8(arr[1]),
-      numEndpoints: dco_decode_u_8(arr[2]),
-      interfaceClass: dco_decode_u_8(arr[3]),
-      subclass: dco_decode_u_8(arr[4]),
-      protocol: dco_decode_u_8(arr[5]),
-      stringIndex: dco_decode_opt_box_autoadd_u_8(arr[6]),
-      endpoints: dco_decode_list_endpoint_descriptor(arr[7]),
-      raw: dco_decode_list_prim_u_8_strict(arr[8]),
-    );
-  }
-
-  @protected
-  InterfaceDescriptors dco_decode_interface_descriptors(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return InterfaceDescriptors(
-      interfaceNumber: dco_decode_u_8(arr[0]),
-      altSettings: dco_decode_list_interface_descriptor(arr[1]),
-    );
-  }
-
-  @protected
   InterfaceInfo dco_decode_interface_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -3883,47 +3797,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<ConfigurationDescriptor> dco_decode_list_configuration_descriptor(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>)
-        .map(dco_decode_configuration_descriptor)
-        .toList();
-  }
-
-  @protected
   List<DeviceSelector> dco_decode_list_device_selector(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_device_selector).toList();
   }
 
   @protected
-  List<EndpointDescriptor> dco_decode_list_endpoint_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_endpoint_descriptor).toList();
-  }
-
-  @protected
-  List<InterfaceDescriptor> dco_decode_list_interface_descriptor(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_interface_descriptor).toList();
-  }
-
-  @protected
-  List<InterfaceDescriptors> dco_decode_list_interface_descriptors(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>)
-        .map(dco_decode_interface_descriptors)
-        .toList();
-  }
-
-  @protected
   List<InterfaceInfo> dco_decode_list_interface_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_interface_info).toList();
+  }
+
+  @protected
+  List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_list_prim_u_8_strict).toList();
   }
 
   @protected
@@ -3982,25 +3870,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  InterfaceDescriptor? dco_decode_opt_box_autoadd_interface_descriptor(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null
-        ? null
-        : dco_decode_box_autoadd_interface_descriptor(raw);
-  }
-
-  @protected
   OutCompletion? dco_decode_opt_box_autoadd_out_completion(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_out_completion(raw);
-  }
-
-  @protected
-  Speed? dco_decode_opt_box_autoadd_speed(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_speed(raw);
   }
 
   @protected
@@ -4036,6 +3908,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_prim_u_8_strict(raw);
+  }
+
+  @protected
   OutCompletion dco_decode_out_completion(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -4045,24 +3923,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       actualLength: dco_decode_u_32(arr[0]),
       error: dco_decode_opt_box_autoadd_usb_exception(arr[1]),
     );
-  }
-
-  @protected
-  Recipient dco_decode_recipient(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return Recipient.values[raw as int];
-  }
-
-  @protected
-  Speed dco_decode_speed(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return Speed.values[raw as int];
-  }
-
-  @protected
-  TransferType dco_decode_transfer_type(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return TransferType.values[raw as int];
   }
 
   @protected
@@ -4472,18 +4332,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ControlIn sse_decode_box_autoadd_control_in(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_control_in(deserializer));
-  }
-
-  @protected
-  ControlOut sse_decode_box_autoadd_control_out(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_control_out(deserializer));
-  }
-
-  @protected
   DeviceId sse_decode_box_autoadd_device_id(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_device_id(deserializer));
@@ -4514,25 +4362,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  InterfaceDescriptor sse_decode_box_autoadd_interface_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_interface_descriptor(deserializer));
-  }
-
-  @protected
   OutCompletion sse_decode_box_autoadd_out_completion(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_out_completion(deserializer));
-  }
-
-  @protected
-  Speed sse_decode_box_autoadd_speed(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_speed(deserializer));
   }
 
   @protected
@@ -4587,111 +4421,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ConfigurationDescriptor sse_decode_configuration_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_configurationValue = sse_decode_u_8(deserializer);
-    var var_numInterfaces = sse_decode_u_8(deserializer);
-    var var_attributes = sse_decode_u_8(deserializer);
-    var var_maxPower = sse_decode_u_8(deserializer);
-    var var_stringIndex = sse_decode_opt_box_autoadd_u_8(deserializer);
-    var var_interfaces = sse_decode_list_interface_descriptors(deserializer);
-    var var_raw = sse_decode_list_prim_u_8_strict(deserializer);
-    return ConfigurationDescriptor(
-      configurationValue: var_configurationValue,
-      numInterfaces: var_numInterfaces,
-      attributes: var_attributes,
-      maxPower: var_maxPower,
-      stringIndex: var_stringIndex,
-      interfaces: var_interfaces,
-      raw: var_raw,
-    );
-  }
-
-  @protected
-  ControlIn sse_decode_control_in(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_controlType = sse_decode_control_type(deserializer);
-    var var_recipient = sse_decode_recipient(deserializer);
-    var var_request = sse_decode_u_8(deserializer);
-    var var_value = sse_decode_u_16(deserializer);
-    var var_index = sse_decode_u_16(deserializer);
-    var var_length = sse_decode_u_16(deserializer);
-    return ControlIn(
-      controlType: var_controlType,
-      recipient: var_recipient,
-      request: var_request,
-      value: var_value,
-      index: var_index,
-      length: var_length,
-    );
-  }
-
-  @protected
-  ControlOut sse_decode_control_out(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_controlType = sse_decode_control_type(deserializer);
-    var var_recipient = sse_decode_recipient(deserializer);
-    var var_request = sse_decode_u_8(deserializer);
-    var var_value = sse_decode_u_16(deserializer);
-    var var_index = sse_decode_u_16(deserializer);
-    var var_data = sse_decode_list_prim_u_8_strict(deserializer);
-    return ControlOut(
-      controlType: var_controlType,
-      recipient: var_recipient,
-      request: var_request,
-      value: var_value,
-      index: var_index,
-      data: var_data,
-    );
-  }
-
-  @protected
-  ControlType sse_decode_control_type(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return ControlType.values[inner];
-  }
-
-  @protected
-  DeviceDescriptor sse_decode_device_descriptor(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_usbVersion = sse_decode_u_16(deserializer);
-    var var_deviceClass = sse_decode_u_8(deserializer);
-    var var_subclass = sse_decode_u_8(deserializer);
-    var var_protocol = sse_decode_u_8(deserializer);
-    var var_maxPacketSize0 = sse_decode_u_8(deserializer);
-    var var_vendorId = sse_decode_u_16(deserializer);
-    var var_productId = sse_decode_u_16(deserializer);
-    var var_deviceVersion = sse_decode_u_16(deserializer);
-    var var_manufacturerStringIndex = sse_decode_opt_box_autoadd_u_8(
-      deserializer,
-    );
-    var var_productStringIndex = sse_decode_opt_box_autoadd_u_8(deserializer);
-    var var_serialNumberStringIndex = sse_decode_opt_box_autoadd_u_8(
-      deserializer,
-    );
-    var var_numConfigurations = sse_decode_u_8(deserializer);
-    var var_raw = sse_decode_list_prim_u_8_strict(deserializer);
-    return DeviceDescriptor(
-      usbVersion: var_usbVersion,
-      deviceClass: var_deviceClass,
-      subclass: var_subclass,
-      protocol: var_protocol,
-      maxPacketSize0: var_maxPacketSize0,
-      vendorId: var_vendorId,
-      productId: var_productId,
-      deviceVersion: var_deviceVersion,
-      manufacturerStringIndex: var_manufacturerStringIndex,
-      productStringIndex: var_productStringIndex,
-      serialNumberStringIndex: var_serialNumberStringIndex,
-      numConfigurations: var_numConfigurations,
-      raw: var_raw,
-    );
-  }
-
-  @protected
   DeviceId sse_decode_device_id(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_key = sse_decode_String(deserializer);
@@ -4714,36 +4443,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       subclass: var_subclass,
       protocol: var_protocol,
       serialNumber: var_serialNumber,
-    );
-  }
-
-  @protected
-  Direction sse_decode_direction(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return Direction.values[inner];
-  }
-
-  @protected
-  EndpointDescriptor sse_decode_endpoint_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_address = sse_decode_u_8(deserializer);
-    var var_direction = sse_decode_direction(deserializer);
-    var var_transferType = sse_decode_transfer_type(deserializer);
-    var var_maxPacketSize = sse_decode_u_32(deserializer);
-    var var_packetsPerMicroframe = sse_decode_u_8(deserializer);
-    var var_interval = sse_decode_u_8(deserializer);
-    var var_raw = sse_decode_list_prim_u_8_strict(deserializer);
-    return EndpointDescriptor(
-      address: var_address,
-      direction: var_direction,
-      transferType: var_transferType,
-      maxPacketSize: var_maxPacketSize,
-      packetsPerMicroframe: var_packetsPerMicroframe,
-      interval: var_interval,
-      raw: var_raw,
     );
   }
 
@@ -4785,46 +4484,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_data = sse_decode_list_prim_u_8_strict(deserializer);
     var var_error = sse_decode_opt_box_autoadd_usb_exception(deserializer);
     return InCompletion(data: var_data, error: var_error);
-  }
-
-  @protected
-  InterfaceDescriptor sse_decode_interface_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_interfaceNumber = sse_decode_u_8(deserializer);
-    var var_alternateSetting = sse_decode_u_8(deserializer);
-    var var_numEndpoints = sse_decode_u_8(deserializer);
-    var var_interfaceClass = sse_decode_u_8(deserializer);
-    var var_subclass = sse_decode_u_8(deserializer);
-    var var_protocol = sse_decode_u_8(deserializer);
-    var var_stringIndex = sse_decode_opt_box_autoadd_u_8(deserializer);
-    var var_endpoints = sse_decode_list_endpoint_descriptor(deserializer);
-    var var_raw = sse_decode_list_prim_u_8_strict(deserializer);
-    return InterfaceDescriptor(
-      interfaceNumber: var_interfaceNumber,
-      alternateSetting: var_alternateSetting,
-      numEndpoints: var_numEndpoints,
-      interfaceClass: var_interfaceClass,
-      subclass: var_subclass,
-      protocol: var_protocol,
-      stringIndex: var_stringIndex,
-      endpoints: var_endpoints,
-      raw: var_raw,
-    );
-  }
-
-  @protected
-  InterfaceDescriptors sse_decode_interface_descriptors(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_interfaceNumber = sse_decode_u_8(deserializer);
-    var var_altSettings = sse_decode_list_interface_descriptor(deserializer);
-    return InterfaceDescriptors(
-      interfaceNumber: var_interfaceNumber,
-      altSettings: var_altSettings,
-    );
   }
 
   @protected
@@ -4876,20 +4535,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<ConfigurationDescriptor> sse_decode_list_configuration_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <ConfigurationDescriptor>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_configuration_descriptor(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   List<DeviceSelector> sse_decode_list_device_selector(
     SseDeserializer deserializer,
   ) {
@@ -4904,48 +4549,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<EndpointDescriptor> sse_decode_list_endpoint_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <EndpointDescriptor>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_endpoint_descriptor(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
-  List<InterfaceDescriptor> sse_decode_list_interface_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <InterfaceDescriptor>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_interface_descriptor(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
-  List<InterfaceDescriptors> sse_decode_list_interface_descriptors(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <InterfaceDescriptors>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_interface_descriptors(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   List<InterfaceInfo> sse_decode_list_interface_info(
     SseDeserializer deserializer,
   ) {
@@ -4955,6 +4558,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <InterfaceInfo>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_interface_info(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Uint8List> sse_decode_list_list_prim_u_8_strict(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Uint8List>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_prim_u_8_strict(deserializer));
     }
     return ans_;
   }
@@ -5047,19 +4664,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  InterfaceDescriptor? sse_decode_opt_box_autoadd_interface_descriptor(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_interface_descriptor(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
   OutCompletion? sse_decode_opt_box_autoadd_out_completion(
     SseDeserializer deserializer,
   ) {
@@ -5067,17 +4671,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_out_completion(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  Speed? sse_decode_opt_box_autoadd_speed(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_speed(deserializer));
     } else {
       return null;
     }
@@ -5143,32 +4736,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_prim_u_8_strict(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   OutCompletion sse_decode_out_completion(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_actualLength = sse_decode_u_32(deserializer);
     var var_error = sse_decode_opt_box_autoadd_usb_exception(deserializer);
     return OutCompletion(actualLength: var_actualLength, error: var_error);
-  }
-
-  @protected
-  Recipient sse_decode_recipient(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return Recipient.values[inner];
-  }
-
-  @protected
-  Speed sse_decode_speed(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return Speed.values[inner];
-  }
-
-  @protected
-  TransferType sse_decode_transfer_type(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_i_32(deserializer);
-    return TransferType.values[inner];
   }
 
   @protected
@@ -5608,24 +5191,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_control_in(
-    ControlIn self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_control_in(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_control_out(
-    ControlOut self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_control_out(self, serializer);
-  }
-
-  @protected
   void sse_encode_box_autoadd_device_id(
     DeviceId self,
     SseSerializer serializer,
@@ -5662,27 +5227,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_interface_descriptor(
-    InterfaceDescriptor self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_interface_descriptor(self, serializer);
-  }
-
-  @protected
   void sse_encode_box_autoadd_out_completion(
     OutCompletion self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_out_completion(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_speed(Speed self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_speed(self, serializer);
   }
 
   @protected
@@ -5734,70 +5284,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_configuration_descriptor(
-    ConfigurationDescriptor self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_8(self.configurationValue, serializer);
-    sse_encode_u_8(self.numInterfaces, serializer);
-    sse_encode_u_8(self.attributes, serializer);
-    sse_encode_u_8(self.maxPower, serializer);
-    sse_encode_opt_box_autoadd_u_8(self.stringIndex, serializer);
-    sse_encode_list_interface_descriptors(self.interfaces, serializer);
-    sse_encode_list_prim_u_8_strict(self.raw, serializer);
-  }
-
-  @protected
-  void sse_encode_control_in(ControlIn self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_control_type(self.controlType, serializer);
-    sse_encode_recipient(self.recipient, serializer);
-    sse_encode_u_8(self.request, serializer);
-    sse_encode_u_16(self.value, serializer);
-    sse_encode_u_16(self.index, serializer);
-    sse_encode_u_16(self.length, serializer);
-  }
-
-  @protected
-  void sse_encode_control_out(ControlOut self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_control_type(self.controlType, serializer);
-    sse_encode_recipient(self.recipient, serializer);
-    sse_encode_u_8(self.request, serializer);
-    sse_encode_u_16(self.value, serializer);
-    sse_encode_u_16(self.index, serializer);
-    sse_encode_list_prim_u_8_strict(self.data, serializer);
-  }
-
-  @protected
-  void sse_encode_control_type(ControlType self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
-  }
-
-  @protected
-  void sse_encode_device_descriptor(
-    DeviceDescriptor self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_16(self.usbVersion, serializer);
-    sse_encode_u_8(self.deviceClass, serializer);
-    sse_encode_u_8(self.subclass, serializer);
-    sse_encode_u_8(self.protocol, serializer);
-    sse_encode_u_8(self.maxPacketSize0, serializer);
-    sse_encode_u_16(self.vendorId, serializer);
-    sse_encode_u_16(self.productId, serializer);
-    sse_encode_u_16(self.deviceVersion, serializer);
-    sse_encode_opt_box_autoadd_u_8(self.manufacturerStringIndex, serializer);
-    sse_encode_opt_box_autoadd_u_8(self.productStringIndex, serializer);
-    sse_encode_opt_box_autoadd_u_8(self.serialNumberStringIndex, serializer);
-    sse_encode_u_8(self.numConfigurations, serializer);
-    sse_encode_list_prim_u_8_strict(self.raw, serializer);
-  }
-
-  @protected
   void sse_encode_device_id(DeviceId self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.key, serializer);
@@ -5815,27 +5301,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_u_8(self.subclass, serializer);
     sse_encode_opt_box_autoadd_u_8(self.protocol, serializer);
     sse_encode_opt_String(self.serialNumber, serializer);
-  }
-
-  @protected
-  void sse_encode_direction(Direction self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
-  }
-
-  @protected
-  void sse_encode_endpoint_descriptor(
-    EndpointDescriptor self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_8(self.address, serializer);
-    sse_encode_direction(self.direction, serializer);
-    sse_encode_transfer_type(self.transferType, serializer);
-    sse_encode_u_32(self.maxPacketSize, serializer);
-    sse_encode_u_8(self.packetsPerMicroframe, serializer);
-    sse_encode_u_8(self.interval, serializer);
-    sse_encode_list_prim_u_8_strict(self.raw, serializer);
   }
 
   @protected
@@ -5874,33 +5339,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_interface_descriptor(
-    InterfaceDescriptor self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_8(self.interfaceNumber, serializer);
-    sse_encode_u_8(self.alternateSetting, serializer);
-    sse_encode_u_8(self.numEndpoints, serializer);
-    sse_encode_u_8(self.interfaceClass, serializer);
-    sse_encode_u_8(self.subclass, serializer);
-    sse_encode_u_8(self.protocol, serializer);
-    sse_encode_opt_box_autoadd_u_8(self.stringIndex, serializer);
-    sse_encode_list_endpoint_descriptor(self.endpoints, serializer);
-    sse_encode_list_prim_u_8_strict(self.raw, serializer);
-  }
-
-  @protected
-  void sse_encode_interface_descriptors(
-    InterfaceDescriptors self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_8(self.interfaceNumber, serializer);
-    sse_encode_list_interface_descriptor(self.altSettings, serializer);
-  }
-
-  @protected
   void sse_encode_interface_info(InterfaceInfo self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_8(self.interfaceNumber, serializer);
@@ -5936,18 +5374,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_configuration_descriptor(
-    List<ConfigurationDescriptor> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_configuration_descriptor(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_device_selector(
     List<DeviceSelector> self,
     SseSerializer serializer,
@@ -5960,42 +5386,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_endpoint_descriptor(
-    List<EndpointDescriptor> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_endpoint_descriptor(item, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_list_interface_descriptor(
-    List<InterfaceDescriptor> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_interface_descriptor(item, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_list_interface_descriptors(
-    List<InterfaceDescriptors> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_interface_descriptors(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_interface_info(
     List<InterfaceInfo> self,
     SseSerializer serializer,
@@ -6004,6 +5394,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_interface_info(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_list_prim_u_8_strict(
+    List<Uint8List> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_prim_u_8_strict(item, serializer);
     }
   }
 
@@ -6106,19 +5508,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_interface_descriptor(
-    InterfaceDescriptor? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_interface_descriptor(self, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_opt_box_autoadd_out_completion(
     OutCompletion? self,
     SseSerializer serializer,
@@ -6128,16 +5517,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_out_completion(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_speed(Speed? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_speed(self, serializer);
     }
   }
 
@@ -6198,28 +5577,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_prim_u_8_strict(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_out_completion(OutCompletion self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.actualLength, serializer);
     sse_encode_opt_box_autoadd_usb_exception(self.error, serializer);
-  }
-
-  @protected
-  void sse_encode_recipient(Recipient self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
-  }
-
-  @protected
-  void sse_encode_speed(Speed self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
-  }
-
-  @protected
-  void sse_encode_transfer_type(TransferType self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -6294,11 +5668,6 @@ class DeviceImpl extends RustOpaque implements Device {
         RustLib.instance.api.rust_arc_decrement_strong_count_DevicePtr,
   );
 
-  /// The active configuration's descriptor. Throws `notConfigured` if the
-  /// device is unconfigured.
-  ConfigurationDescriptor activeConfiguration() =>
-      RustLib.instance.api.crateApiDeviceDeviceActiveConfiguration(that: this);
-
   /// Reattaches the kernel driver to an interface (Linux only).
   void attachKernelDriver(int interfaceNumber) =>
       RustLib.instance.api.crateApiDeviceDeviceAttachKernelDriver(
@@ -6313,30 +5682,43 @@ class DeviceImpl extends RustOpaque implements Device {
         interfaceNumber: interfaceNumber,
       );
 
-  List<ConfigurationDescriptor> get configurations =>
-      RustLib.instance.api.crateApiDeviceDeviceConfigurations(that: this);
-
-  /// IN control transfer on the default endpoint; [timeout] defaults to 1
-  /// second. Not supported on Windows:
-  /// claim an interface and use [Interface.controlIn].
-  Future<Uint8List> controlIn({
-    required ControlIn request,
+  /// IN control transfer from setup fields; use `controlIn`. Not
+  /// supported on Windows: claim an interface and use its `controlIn`.
+  Future<Uint8List> controlInRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
-  }) => RustLib.instance.api.crateApiDeviceDeviceControlIn(
+  }) => RustLib.instance.api.crateApiDeviceDeviceControlInRaw(
     that: this,
+    requestType: requestType,
     request: request,
+    value: value,
+    index: index,
+    length: length,
     timeout: timeout,
   );
 
-  /// OUT control transfer on the default endpoint; [timeout] defaults to 1
-  /// second. Not supported on Windows:
-  /// claim an interface and use [Interface.controlOut].
-  Future<void> controlOut({required ControlOut request, Duration? timeout}) =>
-      RustLib.instance.api.crateApiDeviceDeviceControlOut(
-        that: this,
-        request: request,
-        timeout: timeout,
-      );
+  /// OUT control transfer from setup fields; use `controlOut`. Not
+  /// supported on Windows: claim an interface and use its `controlOut`.
+  Future<void> controlOutRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
+    Duration? timeout,
+  }) => RustLib.instance.api.crateApiDeviceDeviceControlOutRaw(
+    that: this,
+    requestType: requestType,
+    request: request,
+    value: value,
+    index: index,
+    data: data,
+    timeout: timeout,
+  );
 
   /// Detaches kernel drivers, then claims the interface. Kernel drivers
   /// can only be detached on Linux; elsewhere this is [claimInterface].
@@ -6352,9 +5734,6 @@ class DeviceImpl extends RustOpaque implements Device {
         that: this,
         interfaceNumber: interfaceNumber,
       );
-
-  DeviceDescriptor get deviceDescriptor =>
-      RustLib.instance.api.crateApiDeviceDeviceDeviceDescriptor(that: this);
 
   /// Requests a descriptor from the device. [languageId] is only used for
   /// string descriptors. [timeout] defaults to 1 second.
@@ -6393,6 +5772,24 @@ class DeviceImpl extends RustOpaque implements Device {
         timeout: timeout,
       );
 
+  /// The active configuration's descriptors. Parsed as
+  /// `activeConfiguration()`; throws `notConfigured` if the device is
+  /// unconfigured.
+  Uint8List rawActiveConfiguration() => RustLib.instance.api
+      .crateApiDeviceDeviceRawActiveConfiguration(that: this);
+
+  /// Each configuration's descriptors. Parsed as `configurations`.
+  List<Uint8List> get rawConfigurations =>
+      RustLib.instance.api.crateApiDeviceDeviceRawConfigurations(that: this);
+
+  /// The 18-byte device descriptor. Parsed as `deviceDescriptor`.
+  Uint8List get rawDeviceDescriptor =>
+      RustLib.instance.api.crateApiDeviceDeviceRawDeviceDescriptor(that: this);
+
+  /// Speed code; read it as `speed`.
+  int? get rawSpeed =>
+      RustLib.instance.api.crateApiDeviceDeviceRawSpeed(that: this);
+
   /// Resets the device, forcing it to re-enumerate. Not supported on
   /// Windows.
   Future<void> reset() =>
@@ -6405,9 +5802,6 @@ class DeviceImpl extends RustOpaque implements Device {
         that: this,
         configuration: configuration,
       );
-
-  Speed? get speed =>
-      RustLib.instance.api.crateApiDeviceDeviceSpeed(that: this);
 }
 
 @sealed
@@ -6503,12 +5897,13 @@ class DeviceInfoImpl extends RustOpaque implements DeviceInfo {
   int get protocol =>
       RustLib.instance.api.crateApiEnumerationDeviceInfoProtocol(that: this);
 
+  /// Speed code; read it as `speed`.
+  int? get rawSpeed =>
+      RustLib.instance.api.crateApiEnumerationDeviceInfoRawSpeed(that: this);
+
   /// The serial number, if the OS cached it.
   String? get serialNumber => RustLib.instance.api
       .crateApiEnumerationDeviceInfoSerialNumber(that: this);
-
-  Speed? get speed =>
-      RustLib.instance.api.crateApiEnumerationDeviceInfoSpeed(that: this);
 
   int get subclass =>
       RustLib.instance.api.crateApiEnumerationDeviceInfoSubclass(that: this);
@@ -6739,32 +6134,44 @@ class InterfaceImpl extends RustOpaque implements Interface {
   int get altSetting =>
       RustLib.instance.api.crateApiDeviceInterfaceAltSetting(that: this);
 
-  /// IN control transfer. On Windows, for `Recipient.interface`, the low
-  /// byte of `index` must be this interface's number.
-  Future<Uint8List> controlIn({
-    required ControlIn request,
+  /// IN control transfer from setup fields; use `controlIn`. On Windows,
+  /// for interface recipients, the low byte of `index` must be this
+  /// interface's number.
+  Future<Uint8List> controlInRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required int length,
     Duration? timeout,
-  }) => RustLib.instance.api.crateApiDeviceInterfaceControlIn(
+  }) => RustLib.instance.api.crateApiDeviceInterfaceControlInRaw(
     that: this,
+    requestType: requestType,
     request: request,
+    value: value,
+    index: index,
+    length: length,
     timeout: timeout,
   );
 
-  /// OUT control transfer. Same Windows restriction as [controlIn].
-  Future<void> controlOut({required ControlOut request, Duration? timeout}) =>
-      RustLib.instance.api.crateApiDeviceInterfaceControlOut(
-        that: this,
-        request: request,
-        timeout: timeout,
-      );
-
-  /// The descriptor of the current alternate setting.
-  InterfaceDescriptor? get descriptor =>
-      RustLib.instance.api.crateApiDeviceInterfaceDescriptor(that: this);
-
-  /// The descriptors of every alternate setting of this interface.
-  List<InterfaceDescriptor> get descriptors =>
-      RustLib.instance.api.crateApiDeviceInterfaceDescriptors(that: this);
+  /// OUT control transfer from setup fields; use `controlOut`. Same
+  /// Windows restriction as `controlIn`.
+  Future<void> controlOutRaw({
+    required int requestType,
+    required int request,
+    required int value,
+    required int index,
+    required List<int> data,
+    Duration? timeout,
+  }) => RustLib.instance.api.crateApiDeviceInterfaceControlOutRaw(
+    that: this,
+    requestType: requestType,
+    request: request,
+    value: value,
+    index: index,
+    data: data,
+    timeout: timeout,
+  );
 
   /// Opens a bulk or interrupt IN endpoint for exclusive use.
   InEndpoint endpointIn(int address) => RustLib.instance.api
@@ -6776,6 +6183,15 @@ class InterfaceImpl extends RustOpaque implements Interface {
 
   int get interfaceNumber =>
       RustLib.instance.api.crateApiDeviceInterfaceInterfaceNumber(that: this);
+
+  /// The current alternate setting's descriptors. Parsed as `descriptor`.
+  Uint8List? get rawDescriptor =>
+      RustLib.instance.api.crateApiDeviceInterfaceRawDescriptor(that: this);
+
+  /// Each alternate setting's descriptors, in the active configuration.
+  /// Parsed as `descriptors`.
+  List<Uint8List> get rawDescriptors =>
+      RustLib.instance.api.crateApiDeviceInterfaceRawDescriptors(that: this);
 
   /// Selects an alternate setting. All endpoints must be closed first.
   Future<void> setAltSetting(int altSetting) => RustLib.instance.api

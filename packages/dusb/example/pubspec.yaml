@@ -33,3 +33,8 @@ flutter:
 
 
 
+
+# usb_models is a sibling package in this workspace, not yet on pub.dev.
+dependency_overrides:
+  usb_models:
+    path: ../../usb_models

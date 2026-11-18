@@ -14,8 +14,7 @@ void main() {
   test('lists devices and reads descriptors', () async {
     for (final info in await usb.listDevices()) {
       final device = await info.open();
-      expect(device.deviceDescriptor.vendorId, info.vendorId);
-      expect(device.deviceDescriptor.productId, info.productId);
+      expect(device.deviceDescriptor.id, Id(vendor: info.vendorId, product: info.productId));
       expect(device.configurations, isNotEmpty);
     }
   });
@@ -41,5 +40,32 @@ void main() {
       expect(info.matches(DeviceSelector(vendorId: info.vendorId)), isTrue);
       expect(info.matches(DeviceSelector(vendorId: info.vendorId ^ 0xffff)), isFalse);
     }
+  });
+
+  test('descriptors parse into usb_models types', () async {
+    for (final info in await usb.listDevices()) {
+      final device = await info.open();
+      expect(device.speed, info.speed);
+      expect(device.deviceDescriptor.class_, info.class_);
+      expect(device.deviceDescriptor.numConfigurations, device.configurations.length);
+      final active = device.activeConfiguration();
+      expect(device.configurations.map((c) => c.configurationValue), contains(active.configurationValue));
+      for (final alt in active.altSettings) {
+        for (final endpoint in alt.endpoints) {
+          expect(endpoint.address.number.value, inInclusiveRange(1, 15));
+        }
+      }
+    }
+  });
+
+  test('control requests from usb_models', () async {
+    final devices = await usb.listDevices();
+    if (devices.isEmpty) return;
+    final device = await devices.first.open();
+    // GET_DESCRIPTOR(device): a read-only standard request.
+    final bytes = await device.controlIn(
+      const ControlIn(type: .standard, recipient: .device, request: 0x06, value: 0x0100, length: 18),
+    );
+    expect(DeviceDescriptor.parse(bytes).id, device.deviceDescriptor.id);
   });
 }

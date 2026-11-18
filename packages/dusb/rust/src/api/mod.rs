@@ -2,7 +2,6 @@
 //! flutter_rust_bridge can carry: plain structs and fieldless enums are
 //! copied, and nusb's handles are opaque Dart objects.
 
-pub mod descriptors;
 pub mod device;
 pub mod endpoint;
 pub mod enumeration;

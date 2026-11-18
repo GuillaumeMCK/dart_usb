@@ -1,6 +1,5 @@
 //! Plain enums and structs mirrored from nusb.
 
-use flutter_rust_bridge::frb;
 
 /// Converts a Dart `Duration` (bridged as `chrono::Duration`) to the std
 /// duration nusb takes. Negative durations become zero.
@@ -16,32 +15,38 @@ pub(crate) fn timeout_or_default(timeout: Option<chrono::Duration>) -> std::time
 /// US English, the language almost every device's strings use.
 pub(crate) const US_ENGLISH: u16 = 0x0409;
 
-/// USB connection speed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Speed {
-    /// 1.5 Mbit/s
-    Low,
-    /// 12 Mbit/s
-    Full,
-    /// 480 Mbit/s
-    High,
-    /// 5000 Mbit/s
-    SuperSpeed,
-    /// 10000 Mbit/s
-    SuperSpeedPlus,
+/// Speed as a small code mirrored by `Speed` in package:usb_models
+/// (1 low, 2 full, 3 high, 4 super, 5 super+).
+pub(crate) fn speed_code(speed: nusb::Speed) -> Option<u8> {
+    Some(match speed {
+        nusb::Speed::Low => 1,
+        nusb::Speed::Full => 2,
+        nusb::Speed::High => 3,
+        nusb::Speed::Super => 4,
+        nusb::Speed::SuperPlus => 5,
+        _ => return None,
+    })
 }
 
-impl Speed {
-    pub(crate) fn from_nusb(s: nusb::Speed) -> Option<Speed> {
-        Some(match s {
-            nusb::Speed::Low => Speed::Low,
-            nusb::Speed::Full => Speed::Full,
-            nusb::Speed::High => Speed::High,
-            nusb::Speed::Super => Speed::SuperSpeed,
-            nusb::Speed::SuperPlus => Speed::SuperSpeedPlus,
-            _ => return None,
-        })
-    }
+/// Decodes the type and recipient of a `bmRequestType` byte.
+pub(crate) fn control_kind(
+    request_type: u8,
+) -> Result<(nusb::transfer::ControlType, nusb::transfer::Recipient), super::error::UsbException> {
+    use super::error::{UsbErrorKind, UsbException};
+    let control_type = match (request_type >> 5) & 0x03 {
+        0 => nusb::transfer::ControlType::Standard,
+        1 => nusb::transfer::ControlType::Class,
+        2 => nusb::transfer::ControlType::Vendor,
+        _ => return Err(UsbException::new(UsbErrorKind::TransferInvalidArgument, "reserved request type")),
+    };
+    let recipient = match request_type & 0x1f {
+        0 => nusb::transfer::Recipient::Device,
+        1 => nusb::transfer::Recipient::Interface,
+        2 => nusb::transfer::Recipient::Endpoint,
+        3 => nusb::transfer::Recipient::Other,
+        _ => return Err(UsbException::new(UsbErrorKind::TransferInvalidArgument, "reserved recipient")),
+    };
+    Ok((control_type, recipient))
 }
 
 /// USB host controller type.
@@ -64,143 +69,5 @@ impl UsbControllerType {
             nusb::UsbControllerType::VHCI => Self::Vhci,
             _ => return None,
         })
-    }
-}
-
-/// Transfer direction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
-    /// Host to device.
-    Out,
-    /// Device to host.
-    In,
-}
-
-impl From<nusb::transfer::Direction> for Direction {
-    fn from(d: nusb::transfer::Direction) -> Self {
-        match d {
-            nusb::transfer::Direction::Out => Direction::Out,
-            nusb::transfer::Direction::In => Direction::In,
-        }
-    }
-}
-
-/// Endpoint transfer type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TransferType {
-    Control,
-    Isochronous,
-    Bulk,
-    Interrupt,
-}
-
-impl From<nusb::descriptors::TransferType> for TransferType {
-    fn from(t: nusb::descriptors::TransferType) -> Self {
-        match t {
-            nusb::descriptors::TransferType::Control => TransferType::Control,
-            nusb::descriptors::TransferType::Isochronous => TransferType::Isochronous,
-            nusb::descriptors::TransferType::Bulk => TransferType::Bulk,
-            nusb::descriptors::TransferType::Interrupt => TransferType::Interrupt,
-        }
-    }
-}
-
-/// Specification defining a control request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ControlType {
-    Standard,
-    Class,
-    Vendor,
-}
-
-impl From<ControlType> for nusb::transfer::ControlType {
-    fn from(t: ControlType) -> Self {
-        match t {
-            ControlType::Standard => Self::Standard,
-            ControlType::Class => Self::Class,
-            ControlType::Vendor => Self::Vendor,
-        }
-    }
-}
-
-/// Entity targeted by a control request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Recipient {
-    Device,
-    Interface,
-    Endpoint,
-    Other,
-}
-
-impl From<Recipient> for nusb::transfer::Recipient {
-    fn from(r: Recipient) -> Self {
-        match r {
-            Recipient::Device => Self::Device,
-            Recipient::Interface => Self::Interface,
-            Recipient::Endpoint => Self::Endpoint,
-            Recipient::Other => Self::Other,
-        }
-    }
-}
-
-/// SETUP packet for an **IN** (device-to-host) control transfer.
-#[derive(Debug, Clone)]
-#[frb]
-pub struct ControlIn {
-    pub control_type: ControlType,
-    pub recipient: Recipient,
-    /// `bRequest`
-    pub request: u8,
-    /// `wValue`
-    #[frb(default = 0)]
-    pub value: u16,
-    /// `wIndex`: the interface or endpoint number for those recipients.
-    #[frb(default = 0)]
-    pub index: u16,
-    /// `wLength`: number of bytes to read.
-    pub length: u16,
-}
-
-impl From<&ControlIn> for nusb::transfer::ControlIn {
-    fn from(c: &ControlIn) -> Self {
-        nusb::transfer::ControlIn {
-            control_type: c.control_type.into(),
-            recipient: c.recipient.into(),
-            request: c.request,
-            value: c.value,
-            index: c.index,
-            length: c.length,
-        }
-    }
-}
-
-/// SETUP packet and data for an **OUT** (host-to-device) control transfer.
-#[derive(Debug, Clone)]
-#[frb]
-pub struct ControlOut {
-    pub control_type: ControlType,
-    pub recipient: Recipient,
-    /// `bRequest`
-    pub request: u8,
-    /// `wValue`
-    #[frb(default = 0)]
-    pub value: u16,
-    /// `wIndex`: the interface or endpoint number for those recipients.
-    #[frb(default = 0)]
-    pub index: u16,
-    /// Data sent in the data stage, such as `Uint8List.fromList([1, 2, 3])`.
-    pub data: Vec<u8>,
-}
-
-impl ControlOut {
-    pub(crate) fn as_nusb(&self) -> nusb::transfer::ControlOut<'_> {
-        nusb::transfer::ControlOut {
-            control_type: self.control_type.into(),
-            recipient: self.recipient.into(),
-            request: self.request,
-            value: self.value,
-            index: self.index,
-            data: &self.data,
-        }
     }
 }

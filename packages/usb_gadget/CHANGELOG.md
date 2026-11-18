@@ -3,6 +3,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog],
 and this project adheres to [Semantic Versioning].
 
+## 2.0.0
+### Changed
+- **BREAKING**: the USB chapter 9 and HID types moved to the new
+  [`usb_models`](../usb_models) package, shared with the host-side `dusb`
+  package. `usb_gadget` re-exports it, so imports don't change, but types
+  follow Effective Dart naming:
+
+  | 1.x | 2.0 |
+  | --- | --- |
+  | `USBDirection` | `Direction` |
+  | `USBRecipient` | `Recipient` |
+  | `USBRequestType` | `RequestType` |
+  | `USBRequest` | `StandardRequest` |
+  | `USBFeature` | `FeatureSelector` |
+  | `USBDescriptorType` | `DescriptorType` |
+  | `USBLanguageId` | `LanguageId` |
+  | `USBDescriptor` | `Descriptor` |
+  | `RawUSBDescriptor` | `RawDescriptor` |
+  | `USBInterfaceDescriptor` | `InterfaceDescriptor` |
+  | `USBEndpointDescriptor` | `EndpointDescriptor` |
+  | `EndpointDescriptor` (speed-independent template) | `EndpointTemplate` |
+  | `USBInterfaceAssocDescriptor` | `InterfaceAssociationDescriptor` |
+  | `USBSSEPCompDescriptor` | `SuperSpeedEndpointCompanionDescriptor` |
+  | `USBSSPIsocEndpointDescriptor` | `SuperSpeedPlusIsocCompanionDescriptor` |
+  | `SSEndpointAttributes` | `SuperSpeedEndpointAttributes` |
+  | `HIDRequest`, `HIDDescriptor`, `HIDDescriptorType`, `HIDReportType`, `HIDEndpointConfig` | `HidRequest`, `HidDescriptor`, `HidDescriptorType`, `HidReportType`, `HidEndpointConfig` |
+
+### Added
+- Descriptors can be parsed as well as built (`InterfaceDescriptor.parse`,
+  `EndpointDescriptor.parse`, `DeviceDescriptor`, `ConfigurationDescriptor`),
+  and `SetupEvent.packet` returns the request as a shared `SetupPacket`.
+- `Class.raw` for class codes outside `ClassType`; `Class` and `Id` now have
+  value equality and readable `toString`.
+
 ## 1.0.3
 ### Fixed
 - `Unistd.fcntl` now passes its third argument to the syscall. The generated FFI binding fixed `fcntl` to two parameters, so the optional argument was silently dropped — leaving `setFlags`, `setNonBlocking`, and any `F_SET*`/`F_DUPFD` command a no-op. A 3-arg `fcntl` is now bound directly in the wrapper.

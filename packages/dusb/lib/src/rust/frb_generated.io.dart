@@ -3,7 +3,6 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/descriptors.dart';
 import 'api/device.dart';
 import 'api/endpoint.dart';
 import 'api/enumeration.dart';
@@ -233,12 +232,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Duration dco_decode_box_autoadd_Chrono_Duration(dynamic raw);
 
   @protected
-  ControlIn dco_decode_box_autoadd_control_in(dynamic raw);
-
-  @protected
-  ControlOut dco_decode_box_autoadd_control_out(dynamic raw);
-
-  @protected
   DeviceId dco_decode_box_autoadd_device_id(dynamic raw);
 
   @protected
@@ -251,13 +244,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   InCompletion dco_decode_box_autoadd_in_completion(dynamic raw);
 
   @protected
-  InterfaceDescriptor dco_decode_box_autoadd_interface_descriptor(dynamic raw);
-
-  @protected
   OutCompletion dco_decode_box_autoadd_out_completion(dynamic raw);
-
-  @protected
-  Speed dco_decode_box_autoadd_speed(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_16(dynamic raw);
@@ -278,31 +265,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BusInfo dco_decode_bus_info(dynamic raw);
 
   @protected
-  ConfigurationDescriptor dco_decode_configuration_descriptor(dynamic raw);
-
-  @protected
-  ControlIn dco_decode_control_in(dynamic raw);
-
-  @protected
-  ControlOut dco_decode_control_out(dynamic raw);
-
-  @protected
-  ControlType dco_decode_control_type(dynamic raw);
-
-  @protected
-  DeviceDescriptor dco_decode_device_descriptor(dynamic raw);
-
-  @protected
   DeviceId dco_decode_device_id(dynamic raw);
 
   @protected
   DeviceSelector dco_decode_device_selector(dynamic raw);
-
-  @protected
-  Direction dco_decode_direction(dynamic raw);
-
-  @protected
-  EndpointDescriptor dco_decode_endpoint_descriptor(dynamic raw);
 
   @protected
   HotplugEvent dco_decode_hotplug_event(dynamic raw);
@@ -317,12 +283,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   InCompletion dco_decode_in_completion(dynamic raw);
 
   @protected
-  InterfaceDescriptor dco_decode_interface_descriptor(dynamic raw);
-
-  @protected
-  InterfaceDescriptors dco_decode_interface_descriptors(dynamic raw);
-
-  @protected
   InterfaceInfo dco_decode_interface_info(dynamic raw);
 
   @protected
@@ -335,24 +295,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BusInfo> dco_decode_list_bus_info(dynamic raw);
 
   @protected
-  List<ConfigurationDescriptor> dco_decode_list_configuration_descriptor(
-    dynamic raw,
-  );
-
-  @protected
   List<DeviceSelector> dco_decode_list_device_selector(dynamic raw);
 
   @protected
-  List<EndpointDescriptor> dco_decode_list_endpoint_descriptor(dynamic raw);
-
-  @protected
-  List<InterfaceDescriptor> dco_decode_list_interface_descriptor(dynamic raw);
-
-  @protected
-  List<InterfaceDescriptors> dco_decode_list_interface_descriptors(dynamic raw);
-
-  @protected
   List<InterfaceInfo> dco_decode_list_interface_info(dynamic raw);
+
+  @protected
+  List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
 
   @protected
   Uint16List dco_decode_list_prim_u_16_strict(dynamic raw);
@@ -382,15 +331,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   InCompletion? dco_decode_opt_box_autoadd_in_completion(dynamic raw);
 
   @protected
-  InterfaceDescriptor? dco_decode_opt_box_autoadd_interface_descriptor(
-    dynamic raw,
-  );
-
-  @protected
   OutCompletion? dco_decode_opt_box_autoadd_out_completion(dynamic raw);
-
-  @protected
-  Speed? dco_decode_opt_box_autoadd_speed(dynamic raw);
 
   @protected
   int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
@@ -410,16 +351,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UsbException? dco_decode_opt_box_autoadd_usb_exception(dynamic raw);
 
   @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
   OutCompletion dco_decode_out_completion(dynamic raw);
-
-  @protected
-  Recipient dco_decode_recipient(dynamic raw);
-
-  @protected
-  Speed dco_decode_speed(dynamic raw);
-
-  @protected
-  TransferType dco_decode_transfer_type(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -620,12 +555,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Duration sse_decode_box_autoadd_Chrono_Duration(SseDeserializer deserializer);
 
   @protected
-  ControlIn sse_decode_box_autoadd_control_in(SseDeserializer deserializer);
-
-  @protected
-  ControlOut sse_decode_box_autoadd_control_out(SseDeserializer deserializer);
-
-  @protected
   DeviceId sse_decode_box_autoadd_device_id(SseDeserializer deserializer);
 
   @protected
@@ -644,17 +573,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  InterfaceDescriptor sse_decode_box_autoadd_interface_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   OutCompletion sse_decode_box_autoadd_out_completion(
     SseDeserializer deserializer,
   );
-
-  @protected
-  Speed sse_decode_box_autoadd_speed(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
@@ -679,35 +600,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BusInfo sse_decode_bus_info(SseDeserializer deserializer);
 
   @protected
-  ConfigurationDescriptor sse_decode_configuration_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  ControlIn sse_decode_control_in(SseDeserializer deserializer);
-
-  @protected
-  ControlOut sse_decode_control_out(SseDeserializer deserializer);
-
-  @protected
-  ControlType sse_decode_control_type(SseDeserializer deserializer);
-
-  @protected
-  DeviceDescriptor sse_decode_device_descriptor(SseDeserializer deserializer);
-
-  @protected
   DeviceId sse_decode_device_id(SseDeserializer deserializer);
 
   @protected
   DeviceSelector sse_decode_device_selector(SseDeserializer deserializer);
-
-  @protected
-  Direction sse_decode_direction(SseDeserializer deserializer);
-
-  @protected
-  EndpointDescriptor sse_decode_endpoint_descriptor(
-    SseDeserializer deserializer,
-  );
 
   @protected
   HotplugEvent sse_decode_hotplug_event(SseDeserializer deserializer);
@@ -722,16 +618,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   InCompletion sse_decode_in_completion(SseDeserializer deserializer);
 
   @protected
-  InterfaceDescriptor sse_decode_interface_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  InterfaceDescriptors sse_decode_interface_descriptors(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   InterfaceInfo sse_decode_interface_info(SseDeserializer deserializer);
 
   @protected
@@ -744,32 +630,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BusInfo> sse_decode_list_bus_info(SseDeserializer deserializer);
 
   @protected
-  List<ConfigurationDescriptor> sse_decode_list_configuration_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   List<DeviceSelector> sse_decode_list_device_selector(
     SseDeserializer deserializer,
   );
 
   @protected
-  List<EndpointDescriptor> sse_decode_list_endpoint_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  List<InterfaceDescriptor> sse_decode_list_interface_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  List<InterfaceDescriptors> sse_decode_list_interface_descriptors(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   List<InterfaceInfo> sse_decode_list_interface_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<Uint8List> sse_decode_list_list_prim_u_8_strict(
     SseDeserializer deserializer,
   );
 
@@ -807,17 +678,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  InterfaceDescriptor? sse_decode_opt_box_autoadd_interface_descriptor(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   OutCompletion? sse_decode_opt_box_autoadd_out_completion(
     SseDeserializer deserializer,
   );
-
-  @protected
-  Speed? sse_decode_opt_box_autoadd_speed(SseDeserializer deserializer);
 
   @protected
   int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
@@ -839,16 +702,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
   OutCompletion sse_decode_out_completion(SseDeserializer deserializer);
-
-  @protected
-  Recipient sse_decode_recipient(SseDeserializer deserializer);
-
-  @protected
-  Speed sse_decode_speed(SseDeserializer deserializer);
-
-  @protected
-  TransferType sse_decode_transfer_type(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -1081,18 +938,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_control_in(
-    ControlIn self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_box_autoadd_control_out(
-    ControlOut self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_box_autoadd_device_id(
     DeviceId self,
     SseSerializer serializer,
@@ -1117,19 +962,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_interface_descriptor(
-    InterfaceDescriptor self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_box_autoadd_out_completion(
     OutCompletion self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_box_autoadd_speed(Speed self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
@@ -1156,41 +992,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bus_info(BusInfo self, SseSerializer serializer);
 
   @protected
-  void sse_encode_configuration_descriptor(
-    ConfigurationDescriptor self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_control_in(ControlIn self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_control_out(ControlOut self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_control_type(ControlType self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_device_descriptor(
-    DeviceDescriptor self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_device_id(DeviceId self, SseSerializer serializer);
 
   @protected
   void sse_encode_device_selector(
     DeviceSelector self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_direction(Direction self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_endpoint_descriptor(
-    EndpointDescriptor self,
     SseSerializer serializer,
   );
 
@@ -1207,18 +1013,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_in_completion(InCompletion self, SseSerializer serializer);
 
   @protected
-  void sse_encode_interface_descriptor(
-    InterfaceDescriptor self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_interface_descriptors(
-    InterfaceDescriptors self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_interface_info(InterfaceInfo self, SseSerializer serializer);
 
   @protected
@@ -1232,38 +1026,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_bus_info(List<BusInfo> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_configuration_descriptor(
-    List<ConfigurationDescriptor> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_device_selector(
     List<DeviceSelector> self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_list_endpoint_descriptor(
-    List<EndpointDescriptor> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_interface_descriptor(
-    List<InterfaceDescriptor> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_interface_descriptors(
-    List<InterfaceDescriptors> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_interface_info(
     List<InterfaceInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_list_prim_u_8_strict(
+    List<Uint8List> self,
     SseSerializer serializer,
   );
 
@@ -1311,19 +1087,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_opt_box_autoadd_interface_descriptor(
-    InterfaceDescriptor? self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_opt_box_autoadd_out_completion(
     OutCompletion? self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_opt_box_autoadd_speed(Speed? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
@@ -1347,16 +1114,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_out_completion(OutCompletion self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_recipient(Recipient self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_speed(Speed self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_transfer_type(TransferType self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);

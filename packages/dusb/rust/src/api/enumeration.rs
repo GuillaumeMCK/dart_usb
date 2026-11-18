@@ -12,7 +12,7 @@ use nusb::MaybeFuture;
 
 use super::device::Device;
 use super::error::UsbException;
-use super::types::{std_duration, Speed, UsbControllerType};
+use super::types::{speed_code, std_duration, UsbControllerType};
 
 /// Opaque system identifier for a connected device. Equal for the same device
 /// across listings and hotplug events while it stays connected.
@@ -93,9 +93,10 @@ impl DeviceInfo {
         self.0.protocol()
     }
 
+    /// Speed code; read it as `speed`.
     #[frb(sync, getter)]
-    pub fn speed(&self) -> Option<Speed> {
-        self.0.speed().and_then(Speed::from_nusb)
+    pub fn raw_speed(&self) -> Option<u8> {
+        self.0.speed().and_then(speed_code)
     }
 
     /// Identifier for the bus the device is connected to.

@@ -14,7 +14,7 @@ Future<void> main() async {
     print('  ${info.interfaces}');
 
     final device = await info.open();
-    print('  ${device.deviceDescriptor}');
+    print('  ${device.deviceDescriptor}, ${device.speed?.name}');
     try {
       print('  active configuration ${device.activeConfiguration().configurationValue}');
     } on UsbException catch (e) {
@@ -23,8 +23,9 @@ Future<void> main() async {
 
     final languages = await device.getStringDescriptorSupportedLanguages();
     print('  languages: ${languages.map((l) => '0x${l.toRadixString(16)}').join(', ')}');
-    if (device.deviceDescriptor.productStringIndex case final index?) {
-      print('  product string: ${await device.getStringDescriptor(index: index)}');
+    final product = device.deviceDescriptor.product;
+    if (product.hasString) {
+      print('  product string: ${await device.getStringDescriptor(index: product.value)}');
     }
 
     // Errors print their kind, message and OS code.

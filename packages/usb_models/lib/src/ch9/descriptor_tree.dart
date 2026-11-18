@@ -213,6 +213,20 @@ final class InterfaceDescriptors {
 final class InterfaceAltSetting {
   const InterfaceAltSetting(this.descriptor, this.endpoints, this.descriptors);
 
+  /// Parses an interface descriptor followed by its endpoint and
+  /// class-specific descriptors, up to the next interface descriptor.
+  ///
+  /// Throws [FormatException] if [bytes] doesn't start with an interface
+  /// descriptor.
+  factory InterfaceAltSetting.parse(List<int> bytes) {
+    final descriptors = splitDescriptors(bytes);
+    if (descriptors.isEmpty) {
+      throw FormatException('empty interface descriptor', bytes);
+    }
+    return _groupInterfaces(descriptors).firstOrNull?.altSettings.first ??
+        (throw FormatException('not a valid interface descriptor', bytes));
+  }
+
   /// The interface descriptor itself.
   final InterfaceDescriptor descriptor;
 

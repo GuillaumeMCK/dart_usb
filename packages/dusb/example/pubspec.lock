@@ -411,6 +411,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.18.0"
+  usb_models:
+    dependency: "direct overridden"
+    description:
+      path: "../../usb_models"
+      relative: true
+    source: path
+    version: "0.1.0"
   vector_math:
     dependency: transitive
     description:
