@@ -3,6 +3,7 @@ import 'package:usb_gadget/src/loader.dart';
 import 'package:usb_gadget/src/rust/api.dart' show LocalizedString;
 import 'package:usb_gadget/src/rust/api/gadget.dart' as rust;
 import 'package:usb_gadget/src/rust/api/udc.dart' show Udc;
+import 'package:usb_gadget/src/udc.dart';
 import 'package:usb_models/usb_models.dart';
 
 /// Device strings in one language.
@@ -167,12 +168,23 @@ final class Gadget({
   /// Needs root (or `CAP_SYS_ADMIN`) and configfs mounted.
   Future<RegisteredGadget> register() async {
     await ensureInitialized();
-    return RegisteredGadget._(await rust.registerGadget(spec: _spec()), this);
+    return _registration = RegisteredGadget._(
+      await rust.registerGadget(spec: _spec()),
+      this,
+    );
   }
 
-  /// Registers the gadget and binds it to [udc]; the host then sees the
-  /// device.
-  Future<RegisteredGadget> bind(Udc udc) async {
+  /// Registers the gadget and binds it to [udc] (by default the system's
+  /// only or first controller); the host then sees the device.
+  ///
+  /// ```dart
+  /// await gadget.bind();
+  /// await gadget.udc?.awaitState(.configured);
+  /// // ...
+  /// await gadget.remove();
+  /// ```
+  Future<RegisteredGadget> bind([Udc? udc]) async {
+    udc ??= await defaultUdc();
     final registered = await register();
     try {
       await registered.bind(udc);
@@ -182,6 +194,18 @@ final class Gadget({
     }
     return registered;
   }
+
+  RegisteredGadget? _registration;
+  Udc? _udc;
+
+  /// The current registration, if the gadget is registered.
+  RegisteredGadget? get registration => _registration;
+
+  /// The controller the gadget is bound to, if any.
+  Udc? get udc => _udc;
+
+  /// Unbinds the gadget and removes it from configfs, if registered.
+  Future<void> remove() async => _registration?.remove();
 
   rust.GadgetSpec _spec() => rust.GadgetSpec(
     name: name,
@@ -275,10 +299,16 @@ final class RegisteredGadget._(this._native, this.gadget) {
   List<rust.RegisteredFunction> get functions => _native.functions();
 
   /// Binds the gadget to [udc]; the host sees the device plugged in.
-  Future<void> bind(Udc udc) => _native.bind(udc);
+  Future<void> bind(Udc udc) async {
+    await _native.bind(udc);
+    gadget?._udc = udc;
+  }
 
   /// Unbinds the gadget; the host sees the device unplugged.
-  Future<void> unbind() => _native.unbind();
+  Future<void> unbind() async {
+    await _native.unbind();
+    gadget?._udc = null;
+  }
 
   /// Leaves the gadget registered when this process exits.
   void detach() {
@@ -290,6 +320,11 @@ final class RegisteredGadget._(this._native, this.gadget) {
   Future<void> remove() async {
     await _native.remove();
     _registered.remove(this);
+    if (gadget case final g? when identical(g._registration, this)) {
+      g
+        .._registration = null
+        .._udc = null;
+    }
   }
 
   /// Every gadget in configfs, including other programs'.

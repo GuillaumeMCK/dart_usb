@@ -11,6 +11,7 @@ export 'package:usb_models/usb_models.dart';
 export 'src/custom/custom.dart';
 export 'src/function.dart' hide classCodes;
 export 'src/gadget.dart';
+export 'src/hid_function_fs.dart';
 export 'src/rust/api/error.dart' show GadgetErrorKind, GadgetException;
 export 'src/rust/api/function.dart' show FunctionState;
 export 'src/rust/api/gadget.dart' show RegisteredFunction;

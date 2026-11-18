@@ -1,20 +1,18 @@
 part of 'custom.dart';
 
-/// The data side of a [CustomEndpoint]. I/O works once the function's
-/// gadget is registered and the host has enabled the function; if the
+/// A data endpoint of a [CustomFunction], declared with an
+/// [EndpointTemplate] and fetched with [CustomFunction.endpointIn] or
+/// [CustomFunction.endpointOut].
+///
+/// I/O works while the host has the function enabled (between
+/// [CustomFunction.onEnable] and [CustomFunction.onDisable]). If the
 /// function is registered again, the endpoint follows it.
-sealed class EndpointIo<N extends RustOpaqueInterface>({
-  this.queueLength = 16,
-}) {
-  this {
-    if (queueLength < 1) {
-      throw ArgumentError.value(
-        queueLength,
-        'queueLength',
-        'must be at least 1',
-      );
-    }
-  }
+sealed class EndpointIo<N extends RustOpaqueInterface>._(
+  this.template,
+  this.queueLength,
+) {
+  /// How the endpoint was declared.
+  final EndpointTemplate template;
 
   /// Transfers queued in the kernel at once. Deeper queues keep the
   /// endpoint busy while Dart catches up.
@@ -40,10 +38,13 @@ sealed class EndpointIo<N extends RustOpaqueInterface>({
         "the endpoint's function is not part of a registered gadget",
       ));
 
+  /// The number this endpoint was declared with.
+  EndpointNumber get number => template.address.number;
+
   /// Maximum packet size negotiated with the host.
   Future<int> get maxPacketSize;
 
-  /// The endpoint address the host sees.
+  /// The endpoint address the host sees; FunctionFS may renumber endpoints.
   Future<int> get address;
 
   /// Stalls the endpoint.
@@ -55,16 +56,21 @@ sealed class EndpointIo<N extends RustOpaqueInterface>({
   /// Cancels pending operations and queued transfers; they throw a
   /// `cancelled` [GadgetException].
   void cancel();
+
+  @override
+  String toString() =>
+      '${this is InEndpoint ? 'InEndpoint' : 'OutEndpoint'}(${number.value})';
 }
 
 /// An IN endpoint: the gadget writes data for the host to read.
 ///
-/// For throughput, write chunks much larger than the max packet size, such
-/// as 16 KiB; [write] queues them and returns, [flush] waits for them.
-final class InEndpoint({super.queueLength})
+/// [write] queues data and returns once it is queued; [flush] waits until
+/// it is sent. For throughput, write chunks much larger than the max packet
+/// size, such as 16 KiB.
+final class InEndpoint._(super.template, super.queueLength)
     extends EndpointIo<rust.EndpointSender> {
-  /// An IN endpoint keeping up to [queueLength] transfers queued.
-  this;
+  /// Created by the function.
+  this : super._();
 
   /// Queues [data], waiting up to [timeout] for queue space.
   Future<void> write(List<int> data, {Duration? timeout}) =>
@@ -80,13 +86,31 @@ final class InEndpoint({super.queueLength})
     await flush(timeout: timeout);
   }
 
-  /// Writes every chunk of [stream], then flushes. Chunks are queued as
-  /// they come, up to [queueLength] in flight.
+  /// Writes every chunk of [stream], then flushes.
   Future<void> addStream(Stream<List<int>> stream) async {
     await for (final chunk in stream) {
       await write(chunk);
     }
     await flush();
+  }
+
+  /// Writes [data]`()` every [interval] while [condition]`()` holds, such
+  /// as HID reports while the function is enabled. Write errors (the host
+  /// not reading yet) skip that period.
+  Future<void> writeWhile({
+    required bool Function() condition,
+    required List<int> Function() data,
+    required Duration interval,
+  }) async {
+    while (condition()) {
+      final next = Future<void>.delayed(interval);
+      try {
+        await write(data(), timeout: interval);
+      } on GadgetException {
+        // Queue full or endpoint not ready: drop this period's data.
+      }
+      await next;
+    }
   }
 
   @override
@@ -108,10 +132,10 @@ final class InEndpoint({super.queueLength})
 /// An OUT endpoint: the gadget reads data the host wrote.
 ///
 /// Use either [read] or one [stream] at a time.
-final class OutEndpoint({super.queueLength})
+final class OutEndpoint._(super.template, super.queueLength)
     extends EndpointIo<rust.EndpointReceiver> {
-  /// An OUT endpoint keeping up to [queueLength] transfers queued.
-  this;
+  /// Created by the function.
+  this : super._();
 
   var _streaming = false;
 
@@ -126,10 +150,10 @@ final class OutEndpoint({super.queueLength})
   /// Every transfer received, keeping [queueLength] buffers of [chunkSize]
   /// bytes queued so the host rarely waits on Dart.
   ///
-  /// Start it on [EnableEvent]: it ends when the host disables the function
-  /// (or hasn't enabled it yet). Pausing the subscription stops reading:
-  /// once the queued buffers fill, the host is held off (NAKed) until it
-  /// resumes. Cancelling cancels the queued buffers.
+  /// Start it in [CustomFunction.onEnable]: it ends when the host disables
+  /// the function. Pausing the subscription stops reading, so the host is
+  /// held off (NAKed) instead of Dart buffering. Cancelling cancels the
+  /// queued buffers.
   Stream<Uint8List> stream({int chunkSize = 16_384}) =>
       pollStream<rust.EndpointReceiver, Uint8List>(
         native: _live,

@@ -30,24 +30,37 @@ sudo mount -t configfs none /sys/kernel/config  # if not already mounted
 
 ## Kernel functions
 
-The kernel implements the function; you configure it and use the device it
-creates.
+The kernel implements the function; you configure it, and subclass it to
+add your own behaviour:
 
 ```dart
+import 'dart:typed_data';
+
 import 'package:usb_gadget/usb_gadget.dart';
 
+class Keyboard extends HidFunction {
+  Keyboard() : super(reportDescriptor: keyboardReportDescriptor, reportLength: 8, subClass: 1, protocol: 1);
+
+  void sendKey(int keyCode) => this
+    ..sendReport(Uint8List(8)..[2] = keyCode)
+    ..sendReport(Uint8List(8));
+}
+
 Future<void> main() async {
-  final serial = SerialFunction(); // CDC ACM
+  final keyboard = Keyboard();
   final gadget = Gadget(
     id: const Id(vendor: 0x1209, product: 0x0001),
-    strings: {.enUS: const GadgetStrings(manufacturer: 'ACME', product: 'Widget', serialNumber: '0001')},
-    configs: [Config(description: 'Serial', functions: [serial])],
+    strings: {.enUS: const GadgetStrings(manufacturer: 'ACME', product: 'Keyboard')},
+    configs: [Config(description: 'Keyboard', functions: [keyboard])],
   );
 
-  final registered = await gadget.bind(await defaultUdc());
-  print('host-facing serial port: ${serial.devicePath}'); // /dev/ttyGS0
-  // ...
-  await registered.remove();
+  try {
+    await gadget.bind(); // the default controller
+    await gadget.udc?.awaitState(.configured);
+    keyboard.sendKey(0x0B); // h
+  } finally {
+    await gadget.remove();
+  }
 }
 ```
 
@@ -67,56 +80,58 @@ Future<void> main() async {
 ## Custom functions
 
 A `CustomFunction` is implemented in Dart through FunctionFS
-(`CONFIG_USB_CONFIGFS_F_FS`). Endpoints are declared with an
-`InEndpoint` (IN, to the host) or `OutEndpoint` (OUT, from the
-host); control requests arrive as events to answer.
+(`CONFIG_USB_CONFIGFS_F_FS`). Declare its interfaces with `usb_models`'
+`EndpointTemplate`s, then override the hooks you need:
 
 ```dart
-final tx = InEndpoint(), rx = OutEndpoint();
-final echo = CustomFunction([
-  CustomInterface(
-    const Class.vendorSpecific(0, 0),
-    name: 'echo',
-    endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
-  ),
-]);
+class Echo extends CustomFunction {
+  Echo()
+    : super(
+        interfaces: const [
+          CustomInterface(
+            class_: .vendorSpecific(0, 0),
+            endpoints: [
+              EndpointTemplate(address: .in_(.ep1), config: .bulk()),
+              EndpointTemplate(address: .out(.ep2), config: .bulk()),
+            ],
+          ),
+        ],
+      );
 
-final registered = await Gadget(
-  id: const Id(vendor: 0x1209, product: 0x0001),
-  configs: [Config(functions: [echo])],
-).bind(await defaultUdc());
+  late final epIn = endpointIn(.ep1);
+  late final epOut = endpointOut(.ep2);
 
-await for (final event in echo.events) {
-  switch (event) {
-    case EnableEvent():
-      // Keeps 16 receive buffers queued; sends each chunk back.
-      rx.stream().asyncMap(tx.writeAndFlush).listen(null);
-    case ControlInRequest(:final setup) when setup.type == .vendor:
-      await event.send([1, 2, 3]);
-    case final ControlRequest request:
-      await request.halt(); // stall what we don't handle
-    default:
+  @override
+  void onEnable() => epOut.stream().listen(epIn.write);
+
+  @override
+  Future<void> onSetup(ControlRequest request) async {
+    switch (request) {
+      case final ControlInRequest r when r.setup.type == .vendor:
+        await r.send([1, 2, 3]);
+      default: // unanswered requests are stalled
+    }
   }
 }
 ```
 
-How custom functions behave:
-
-- **Control requests** must be answered exactly once (`send`, `receive` or
-  `halt`; a second answer throws). `send` truncates to the length the host
-  asked for. Unanswered requests are stalled after 4.5 seconds, and a later
-  answer throws a `timedOut` `GadgetException`. While nobody listens to
-  `events`, requests are stalled at once.
-- **`events`** can be listened to before registering; lifecycle events that
-  happened earlier are delivered first. One listener at a time.
-  `interfaceNumber(i)` doesn't block, so handlers can use it to check
-  `setup.index`.
-- **`OutEndpoint.stream()`** keeps `queueLength` buffers queued. Start it on
-  `EnableEvent`; it ends when the host disables the function. Pausing it
-  holds the host off (NAK) instead of buffering in Dart. Use either
-  `stream()` or `read()`, not both.
-- **Registering again** after `remove()` starts the function afresh;
-  streams from the previous registration end.
+- **Hooks:** `onBind`, `onUnbind`, `onEnable`, `onDisable`, `onSuspend`,
+  `onResume` and `onSetup`, plain or `async`. `state` and
+  `awaitState(.enabled)` follow the lifecycle.
+- **Control requests** are answered once with `send`, `receive`, `ack` or
+  `halt`; `send` truncates to the length the host asked for. A request
+  still unanswered when `onSetup` completes is stalled, and unanswered ones
+  are stalled after 4.5 seconds anyway. `interfaceNumber(i)` doesn't
+  block, so `onSetup` can check `setup.index` against it.
+- **Endpoints:** `epIn.write` queues data (`flush` waits for it),
+  `epIn.writeWhile` sends periodically, `epOut.read` reads one transfer,
+  `epOut.stream()` keeps buffers queued. Start streams in `onEnable`; they
+  end when the host disables the function, and pausing one holds the host
+  off instead of buffering in Dart.
+- **`HidFunctionFs`** is a ready-made HID custom function: it answers the
+  HID class requests and calls `onGetReport`, `onSetReport`, `onSetIdle`
+  and `onSetProtocol`. See [the gamepad example](example/gamepad.dart).
+- **Registering again** after `remove()` starts the function afresh.
 
 ## Examples
 

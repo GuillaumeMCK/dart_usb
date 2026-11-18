@@ -1,7 +1,6 @@
-// A HID gamepad implemented in Dart with a custom (FunctionFS) function: the
-// HID class requests are answered here instead of by the kernel's HID
-// driver. Run as root on a board with a USB device controller.
-import 'dart:async';
+// A HID gamepad implemented in Dart: HidFunctionFs answers the HID class
+// requests, and the gamepad only produces reports. Run as root on a board
+// with a USB device controller.
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -50,116 +49,43 @@ const _reportDescriptor = [
   0xC0, // End Collection
 ];
 
-/// The gamepad's state, sent as input reports.
-final class GamepadReport() {
-  int leftX = 128, leftY = 128, rightX = 128, rightY = 128;
-  int buttons = 0; // 12 bits
-  int hat = 8; // 0-7 clockwise from north, 8 centered
-
-  Uint8List toBytes() => Uint8List.fromList([
-    leftX,
-    leftY,
-    rightX,
-    rightY,
-    buttons & 0xFF,
-    buttons >> 8 & 0x0F,
-    hat & 0x0F,
-  ]);
-}
-
-/// A gamepad that moves its sticks in circles and steps its hat around.
-final class Gamepad() {
-  this {
-    function = CustomFunction([
-      CustomInterface(
-        const Class(.hid, 0, 0),
+/// A gamepad whose sticks circle and whose hat steps around.
+class Gamepad() extends HidFunctionFs {
+  /// The gamepad.
+  this
+    : super(
         name: 'Gamepad',
-        endpoints: [
-          CustomEndpoint.interrupt(_reports, interval: 4, maxPacketSize: 8),
-        ],
-        descriptors: [
-          CustomDescriptor(
-            HidDescriptorType.hid.value,
-            HidDescriptor(reportLength: _reportDescriptor.length)
-                .toBytes()
-                .sublist(2),
-          ),
-        ],
-      ),
+        config: const .inputOnly(maxPacketSize: 7),
+        reportDescriptor: _reportDescriptor,
+      );
+
+  var _frame = 0;
+
+  /// The current input report.
+  Uint8List report() {
+    final t = _frame++ * config.reportInterval.inMilliseconds / 1000;
+    return Uint8List.fromList([
+      (128 + 110 * cos(t * pi)).round(), // left X
+      (128 + 110 * sin(t * pi)).round(), // left Y
+      (128 + 90 * cos(t * 1.5 * pi)).round(), // right X
+      (128 + 90 * sin(t * 3 * pi)).round(), // right Y
+      0, 0, // buttons
+      (t / 0.75).floor() % 9, // hat: 0-7 clockwise from north, 8 centered
     ]);
   }
 
-  late final CustomFunction function;
-  final _reports = InEndpoint();
-  final report = GamepadReport();
-  var _idle = 0;
-  var _protocol = 1;
-  Timer? _timer;
+  @override
+  void onEnable() => epIn.writeWhile(
+    condition: () => state == .enabled,
+    data: report,
+    interval: config.reportInterval,
+  );
 
-  /// Answers the host until the gadget is removed.
-  Future<void> run() async {
-    await for (final event in function.events) {
-      switch (event) {
-        case EnableEvent():
-          _start();
-        case DisableEvent() || UnbindEvent():
-          _timer?.cancel();
-        case final ControlRequest request:
-          await _answer(request);
-        default:
-      }
-    }
-  }
-
-  Future<void> _answer(ControlRequest request) async {
-    final setup = request.setup;
-    switch ((request, setup.type, setup.request)) {
-      // The host reads the report descriptor through the interface.
-      case (final ControlInRequest r, .standard, 0x06)
-          when setup.value >> 8 == HidDescriptorType.report.value:
-        await r.send(_reportDescriptor.take(setup.length).toList());
-      case (final ControlInRequest r, .class_, 0x01): // GET_REPORT
-        await r.send(report.toBytes());
-      case (final ControlInRequest r, .class_, 0x02): // GET_IDLE
-        await r.send([_idle]);
-      case (final ControlInRequest r, .class_, 0x03): // GET_PROTOCOL
-        await r.send([_protocol]);
-      case (final ControlOutRequest r, .class_, 0x0A): // SET_IDLE
-        _idle = setup.value >> 8;
-        await r.receive();
-      case (final ControlOutRequest r, .class_, 0x0B): // SET_PROTOCOL
-        _protocol = setup.value & 0xFF;
-        await r.receive();
-      default:
-        await request.halt();
-    }
-  }
-
-  void _start() {
-    var frame = 0;
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 10), (_) async {
-      final t = frame++ / 100;
-      report
-        ..leftX = (128 + 110 * cos(t * pi)).round()
-        ..leftY = (128 + 110 * sin(t * pi)).round()
-        ..rightX = (128 + 90 * cos(t * 1.5 * pi)).round()
-        ..rightY = (128 + 90 * sin(t * 3 * pi)).round()
-        ..hat = (t / 0.75).floor() % 9;
-      try {
-        await _reports.write(
-          report.toBytes(),
-          timeout: const Duration(milliseconds: 100),
-        );
-      } on GadgetException {
-        // The host isn't polling yet, or stopped; keep animating.
-      }
-    });
-  }
+  @override
+  List<int> onGetReport(HidReportType type, int reportId) => report();
 }
 
 Future<void> main() async {
-  final gamepad = Gamepad();
   final gadget = Gadget(
     id: const Id(vendor: 0x1209, product: 0x0001), // pid.codes test ID
     strings: {
@@ -173,14 +99,16 @@ Future<void> main() async {
       Config(
         description: 'Gamepad',
         maxPower: const MaxPower(100),
-        functions: [gamepad.function],
+        functions: [Gamepad()],
       ),
     ],
   );
 
-  final registered = await gadget.bind(await defaultUdc());
-  unawaited(gamepad.run());
-  stdout.writeln('Gamepad active. Ctrl+C to exit.');
-  await ProcessSignal.sigint.watch().first;
-  await registered.remove();
+  try {
+    await gadget.bind();
+    stdout.writeln('Gamepad active. Ctrl+C to exit.');
+    await ProcessSignal.sigint.watch().first;
+  } finally {
+    await gadget.remove();
+  }
 }

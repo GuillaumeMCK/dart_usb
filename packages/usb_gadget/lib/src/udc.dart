@@ -44,7 +44,7 @@ extension UdcModels on rust.Udc {
   ///
   /// sysfs has no change notification for this, so the state is polled
   /// every [interval]. Throws a [TimeoutException] after [timeout].
-  Future<void> waitForState(
+  Future<void> awaitState(
     rust.UdcState state, {
     Duration? timeout,
     Duration interval = const Duration(milliseconds: 50),

@@ -31,7 +31,7 @@ Future<Udc?> _dummyUdc() async {
 }
 
 /// Registers [functions] on [udc] and opens the device from the host side.
-Future<(RegisteredGadget, host.Device)> _connect(
+Future<(Gadget, host.Device)> _connect(
   Udc udc,
   List<GadgetFunction> functions,
 ) async {
@@ -47,16 +47,19 @@ Future<(RegisteredGadget, host.Device)> _connect(
     },
     configs: [Config(description: 'Test', functions: functions)],
   );
-  final registered = await gadget.bind(udc);
-  addTearDown(registered.remove);
-  await udc.waitForState(.configured, timeout: const Duration(seconds: 10));
+  await gadget.bind(udc);
+  addTearDown(gadget.remove);
+  await gadget.udc?.awaitState(
+    .configured,
+    timeout: const Duration(seconds: 10),
+  );
   final selector = host.DeviceSelector(
     vendorId: _id.vendor,
     productId: _id.product,
   );
   for (var attempt = 0; attempt < 50; attempt++) {
     if (await usb.findDevice([selector]) case final info?) {
-      return (registered, await info.open());
+      return (gadget, await info.open());
     }
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
@@ -145,8 +148,7 @@ void main() async {
 
         final endpoint = interface.descriptor!.endpoints.single;
         final reports = interface.endpointIn(endpoint.address.value);
-        final file = await hid.open();
-        await file.writeFrom([1, 2, 3, 4]);
+        hid.sendReport([1, 2, 3, 4]);
         expect(
           await reports.transfer(
             length: 4,
@@ -154,7 +156,6 @@ void main() async {
           ),
           [1, 2, 3, 4],
         );
-        await file.close();
       });
     });
 
@@ -186,20 +187,13 @@ void main() async {
   });
 
   group('custom function', skip: skip, () {
-    late InEndpoint tx;
-    late OutEndpoint rx;
-    late CustomFunction function;
     late _Echo echo;
     late host.Interface interface;
 
     setUp(() async {
-      tx = InEndpoint();
-      rx = OutEndpoint();
-      function = _echoFunction(tx, rx);
-      echo = _Echo(function, tx, rx); // listens before registration
-      addTearDown(echo.stop);
-      final (_, device) = await _connect(udc!, [function]);
-      await echo.enabled.timeout(const Duration(seconds: 5));
+      echo = _Echo();
+      final (_, device) = await _connect(udc!, [echo]);
+      await echo.awaitState(.enabled, timeout: const Duration(seconds: 5));
       interface = await device.claimInterface(0);
     });
 
@@ -212,7 +206,7 @@ void main() async {
       }
     });
 
-    test('vendor control requests reach Dart and are answered', () async {
+    test('vendor control requests reach onSetup and are answered', () async {
       await interface.controlOut(
         const ControlOut(
           type: .vendor,
@@ -232,7 +226,7 @@ void main() async {
       expect(read, [9, 8, 7]);
     });
 
-    test('halted requests stall', () async {
+    test('requests onSetup leaves unanswered stall', () async {
       await expectLater(
         interface.controlIn(
           const ControlIn(
@@ -284,7 +278,7 @@ void main() async {
       );
     }, timeout: const Timeout(Duration(seconds: 30)));
 
-    test('handlers can look up interface numbers without blocking', () async {
+    test('onSetup can look up interface numbers without blocking', () async {
       final watch = Stopwatch()..start();
       final read = await interface.controlIn(
         const ControlIn(
@@ -327,41 +321,42 @@ void main() async {
 
     test('endpoint queries answer while a stream waits for data', () async {
       expect(
-        await rx.maxPacketSize.timeout(const Duration(seconds: 1)),
+        await echo.epOut.maxPacketSize.timeout(const Duration(seconds: 1)),
         greaterThan(0),
       );
       expect(
-        await rx.address.timeout(const Duration(seconds: 1)),
+        await echo.epOut.address.timeout(const Duration(seconds: 1)),
         greaterThan(0),
       );
     });
 
-    test('one consumer at a time', () async {
-      expect(() => rx.read(), throwsStateError);
-      await expectLater(function.events.first, throwsStateError);
+    test('one stream at a time', () {
+      expect(() => echo.epOut.read(), throwsStateError);
     });
   });
 
   group('custom function lifecycle', skip: skip, () {
     test('a paused stream holds the host off', () async {
-      final rx = OutEndpoint(queueLength: 2);
-      final function = CustomFunction([
-        CustomInterface(
-          const Class.vendorSpecific(0, 0),
-          endpoints: [CustomEndpoint.bulk(rx)],
-        ),
-      ]);
-      final enabled = function.events.firstWhere((e) => e is EnableEvent);
+      final function = CustomFunction(
+        queueLength: 2,
+        interfaces: const [
+          CustomInterface(
+            class_: .vendorSpecific(0, 0),
+            endpoints: [EndpointTemplate(address: .out(.ep1), config: .bulk())],
+          ),
+        ],
+      );
       final (_, device) = await _connect(udc!, [function]);
-      await enabled.timeout(const Duration(seconds: 5));
+      await function.awaitState(.enabled, timeout: const Duration(seconds: 5));
       final interface = await device.claimInterface(0);
       final out = interface.endpointOut(
         interface.descriptor!.endpoints.single.address.value,
       );
 
       final received = <List<int>>[];
-      final subscription = rx.stream(chunkSize: 512).listen(received.add)
-        ..pause();
+      final subscription =
+          function.endpointOut(.ep1).stream(chunkSize: 512).listen(received.add)
+            ..pause();
       addTearDown(subscription.cancel);
       // Paused before reading anything: no buffer is queued, so the host's
       // transfer is NAKed until it times out.
@@ -381,32 +376,84 @@ void main() async {
     });
 
     test('a function can be registered again after removal', () async {
-      final tx = InEndpoint(), rx = OutEndpoint();
-      final function = _echoFunction(tx, rx);
+      final echo = _Echo();
       for (var round = 0; round < 2; round++) {
-        final echo = _Echo(function, tx, rx);
-        final (registered, device) = await _connect(udc!, [function]);
-        await echo.enabled.timeout(const Duration(seconds: 5));
+        final (gadget, device) = await _connect(udc!, [echo]);
+        await echo.awaitState(.enabled, timeout: const Duration(seconds: 5));
         final interface = await device.claimInterface(0);
         expect(await _roundTrip(interface, [round, 1, 2]), [round, 1, 2]);
-        await echo.stop();
-        await registered.remove();
-        expect(function.state, FunctionState.removed);
+        await gadget.remove();
+        await echo.awaitState(.removed, timeout: const Duration(seconds: 2));
         await Future<void>.delayed(
           const Duration(milliseconds: 500),
         ); // let the host see it go
       }
     }, timeout: const Timeout(Duration(seconds: 40)));
+
+    test('HidFunctionFs answers the HID requests and sends reports', () async {
+      const reportDescriptor = [
+        0x06,
+        0x00,
+        0xFF,
+        0x09,
+        0x01,
+        0xA1,
+        0x01,
+        0x15,
+        0x00,
+        0x26,
+        0xFF,
+        0x00, //
+        0x75, 0x08, 0x95, 0x04, 0x09, 0x01, 0x81, 0x02, 0xC0,
+      ];
+      final hid = HidFunctionFs(
+        config: const .inputOnly(maxPacketSize: 4),
+        reportDescriptor: reportDescriptor,
+      );
+      final (_, device) = await _connect(udc!, [hid]);
+      await hid.awaitState(.enabled, timeout: const Duration(seconds: 5));
+      final interface = await device.claimInterface(0);
+      final read = await interface.controlIn(
+        ControlIn(
+          type: .standard,
+          recipient: .interface,
+          request: 0x06,
+          value: 0x2200,
+          length: reportDescriptor.length,
+        ),
+      );
+      expect(read, reportDescriptor);
+      await interface.controlOut(
+        const ControlOut(
+          type: .class_,
+          recipient: .interface,
+          request: 0x0A,
+          value: 0x0400,
+        ),
+      );
+      expect(
+        await interface.controlIn(
+          const ControlIn(
+            type: .class_,
+            recipient: .interface,
+            request: 0x02,
+            length: 1,
+          ),
+        ),
+        [4],
+      );
+
+      final reports = interface.endpointIn(
+        interface.descriptor!.endpoints.single.address.value,
+      );
+      await hid.epIn.write([1, 2, 3, 4]);
+      expect(
+        await reports.transfer(length: 4, timeout: const Duration(seconds: 2)),
+        [1, 2, 3, 4],
+      );
+    });
   });
 }
-
-CustomFunction _echoFunction(InEndpoint tx, OutEndpoint rx) => CustomFunction([
-  CustomInterface(
-    const Class.vendorSpecific(0, 0),
-    name: 'echo',
-    endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
-  ),
-]);
 
 /// Sends [payload] out and reads the echo back.
 Future<List<int>> _roundTrip(
@@ -421,37 +468,39 @@ Future<List<int>> _roundTrip(
     alt.endpoints.firstWhere((e) => e.direction == .in_).address.value,
   );
   await out.transfer(data: payload);
-  return in_.transfer(length: 16384, timeout: const Duration(seconds: 2));
+  return in_.transfer(length: 16_384, timeout: const Duration(seconds: 2));
 }
 
-/// The test gadget's behaviour: echoes bulk data, and answers vendor
-/// requests by number (1 store/load, 2 stall, 3 answer too late, 4 own
-/// interface number, 5 oversized answer, 6 answer twice).
-final class _Echo(this.function, this.tx, this.rx) {
-  this {
-    _events = function.events.listen(_onEvent);
-  }
+/// The test function: echoes bulk data, and answers vendor requests by
+/// number (1 store/load, 2 left unanswered, 3 answered too late, 4 own
+/// interface number, 5 oversized answer, 6 answered twice).
+class _Echo() extends CustomFunction {
+  this
+    : super(
+        interfaces: const [
+          CustomInterface(
+            class_: .vendorSpecific(0, 0),
+            name: 'echo',
+            endpoints: [
+              EndpointTemplate(address: .in_(.ep1), config: .bulk()),
+              EndpointTemplate(address: .out(.ep2), config: .bulk()),
+            ],
+          ),
+        ],
+      );
 
-  final CustomFunction function;
-  final InEndpoint tx;
-  final OutEndpoint rx;
-  late final StreamSubscription<CustomEvent> _events;
-  StreamSubscription<void>? _echo;
-  final _enabled = Completer<void>();
+  late final epIn = endpointIn(.ep1);
+  late final epOut = endpointOut(.ep2);
   final lateAnswer = Completer<Object>();
   final secondAnswer = Completer<Object>();
   var _stored = <int>[];
 
-  Future<void> get enabled => _enabled.future;
+  @override
+  void onEnable() => epOut.stream().asyncMap(epIn.writeAndFlush).listen(null);
 
-  Future<void> _onEvent(CustomEvent event) async {
-    switch (event) {
-      case EnableEvent():
-        _echo ??= rx.stream().asyncMap(tx.writeAndFlush).listen(null);
-        if (!_enabled.isCompleted) _enabled.complete();
-      case DisableEvent():
-        await _echo?.cancel();
-        _echo = null;
+  @override
+  Future<void> onSetup(ControlRequest request) async {
+    switch (request) {
       case final ControlOutRequest r when r.setup.request == 1:
         _stored = await r.receive();
       case final ControlInRequest r when r.setup.request == 1:
@@ -464,7 +513,7 @@ final class _Echo(this.function, this.tx, this.rx) {
           lateAnswer.complete(e);
         }
       case final ControlInRequest r when r.setup.request == 4:
-        await r.send([function.interfaceNumber(0)]);
+        await r.send([interfaceNumber(0)]);
       case final ControlInRequest r when r.setup.request == 5:
         await r.send(List.generate(10, (i) => i));
       case final ControlInRequest r when r.setup.request == 6:
@@ -474,14 +523,7 @@ final class _Echo(this.function, this.tx, this.rx) {
         } on Object catch (e) {
           secondAnswer.complete(e);
         }
-      case final ControlRequest r:
-        await r.halt();
       default:
     }
-  }
-
-  Future<void> stop() async {
-    await _echo?.cancel();
-    await _events.cancel();
   }
 }

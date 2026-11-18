@@ -27,27 +27,70 @@ void main() {
     expect(property.text, '{12345678-1234-1234-1234-123456789abc}');
   });
 
-  test('endpoints take their direction from their io', () {
-    final tx = InEndpoint(queueLength: 4);
-    final endpoint = CustomEndpoint.interrupt(
-      tx,
-      interval: 4,
-      maxPacketSize: 8,
+  test('endpoints are declared with templates and looked up by number', () {
+    final function = CustomFunction(
+      queueLength: 4,
+      interfaces: const [
+        CustomInterface(
+          class_: .vendorSpecific(0, 0),
+          endpoints: [
+            EndpointTemplate(
+              address: .in_(.ep1),
+              config: .interrupt(interval: Duration(milliseconds: 4)),
+            ),
+            EndpointTemplate(address: .out(.ep1), config: .bulk()),
+          ],
+        ),
+      ],
     );
-    expect(endpoint.io, same(tx));
-    expect(endpoint.transferType, TransferType.interrupt);
-    expect(endpoint.maxPacketSizeHighSpeed, 8);
+    expect(
+      function.endpointIn(.ep1).template.config.transferType,
+      TransferType.interrupt,
+    );
+    expect(function.endpointOut(.ep1).queueLength, 4);
+    expect(() => function.endpointIn(.ep2), throwsArgumentError);
+  });
+
+  test('duplicate endpoints and empty queues are rejected', () {
+    const ep = EndpointTemplate(address: .in_(.ep1), config: .bulk());
+    expect(
+      () => CustomFunction(
+        interfaces: const [
+          CustomInterface(class_: .vendorSpecific(0, 0), endpoints: [ep, ep]),
+        ],
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => CustomFunction(interfaces: const [], queueLength: 0),
+      throwsArgumentError,
+    );
   });
 
   test('functions report unregistered before registration', () {
     expect(SerialFunction().state, FunctionState.unregistered);
-    expect(CustomFunction([]).path, isNull);
+    final function = CustomFunction(
+      interfaces: const [
+        CustomInterface(
+          class_: .vendorSpecific(0, 0),
+          endpoints: [EndpointTemplate(address: .out(.ep1), config: .bulk())],
+        ),
+      ],
+    );
+    expect(function.state, CustomFunctionState.unregistered);
+    expect(function.path, isNull);
     expect(() => SerialFunction().devicePath, throwsStateError);
-    expect(() => OutEndpoint().read(), throwsStateError);
+    expect(() => function.endpointOut(.ep1).read(), throwsStateError);
   });
 
-  test('endpoints need a queue', () {
-    expect(() => InEndpoint(queueLength: 0), throwsArgumentError);
-    expect(OutEndpoint(queueLength: 1).queueLength, 1);
+  test('HidFunctionFs declares its endpoints and HID descriptor', () {
+    final hid = HidFunctionFs(
+      config: const .bidirectional(),
+      reportDescriptor: const [0x05, 0x01, 0xC0],
+    );
+    expect(hid.interfaces.single.class_.type, ClassType.hid);
+    expect(hid.interfaces.single.endpoints, hasLength(2));
+    expect(hid.interfaces.single.descriptors.single, isA<HidDescriptor>());
+    expect(hid.epIn.number, EndpointNumber.ep1);
   });
 }

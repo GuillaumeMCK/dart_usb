@@ -33,6 +33,27 @@ const _reportDescriptor = [
   0xC0, // End Collection
 ];
 
+/// A boot keyboard.
+class Keyboard() extends HidFunction {
+  /// A keyboard with the boot report layout.
+  this
+    : super(
+        reportDescriptor: _reportDescriptor,
+        reportLength: 8,
+        subClass: 1,
+        protocol: 1,
+      );
+
+  /// Presses and releases the key with HID usage [keyCode].
+  void sendKey(int keyCode, {int modifiers = 0}) => this
+    ..sendReport(
+      Uint8List(8)
+        ..[0] = modifiers
+        ..[2] = keyCode,
+    )
+    ..sendReport(Uint8List(8));
+}
+
 /// "hello world" and Enter, as HID usage IDs.
 const _helloWorld = [
   0x0B,
@@ -50,12 +71,7 @@ const _helloWorld = [
 ];
 
 Future<void> main() async {
-  final keyboard = HidFunction(
-    reportDescriptor: _reportDescriptor,
-    reportLength: 8,
-    subClass: 1,
-    protocol: 1,
-  );
+  final keyboard = Keyboard();
   final gadget = Gadget(
     id: const Id(vendor: 0x1209, product: 0x0001), // pid.codes test ID
     strings: {
@@ -70,23 +86,15 @@ Future<void> main() async {
     ],
   );
 
-  final udc = await defaultUdc();
-  final registered = await gadget.bind(udc);
   try {
-    await udc.waitForState(.configured);
+    await gadget.bind();
+    await gadget.udc?.awaitState(.configured);
     // Some hosts miss the first reports right after configuration.
     await Future<void>.delayed(const Duration(milliseconds: 500));
-
-    final device = await keyboard.open();
-    for (final key in _helloWorld) {
-      await device.writeFrom(Uint8List(8)..[2] = key); // press
-      await device.writeFrom(Uint8List(8)); // release
-    }
-    await device.close();
-
+    _helloWorld.forEach(keyboard.sendKey);
     stdout.writeln('Typed "hello world". Ctrl+C to exit.');
     await ProcessSignal.sigint.watch().first;
   } finally {
-    await registered.remove();
+    await gadget.remove();
   }
 }

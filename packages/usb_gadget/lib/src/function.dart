@@ -10,14 +10,10 @@ import 'package:usb_models/usb_models.dart';
 /// A USB function: one or more interfaces of a gadget, implemented by a
 /// kernel driver ([KernelFunction]) or by Dart (`CustomFunction`).
 ///
-/// A function only does something once its gadget is registered; until then
-/// [state] is [rust.FunctionState.unregistered].
-abstract base class GadgetFunction() {
+/// A function only does something once its gadget is registered.
+abstract class GadgetFunction() {
   /// Creates a function; see the subclasses.
   this;
-
-  /// Registration state.
-  rust.FunctionState get state;
 
   /// The function's configfs directory, once registered.
   String? get path;
@@ -34,7 +30,7 @@ ClassCodes classCodes(Class c) =>
 
 /// A function implemented by a Linux kernel driver: configured here, then
 /// used through the device file or network interface the kernel creates.
-abstract base class KernelFunction() extends GadgetFunction {
+abstract class KernelFunction() extends GadgetFunction {
   /// Creates a kernel function; see the subclasses.
   this;
 
@@ -62,7 +58,7 @@ abstract base class KernelFunction() extends GadgetFunction {
     return (_native = create()).handle();
   }
 
-  @override
+  /// Registration state.
   rust.FunctionState get state => _native?.state ?? .unregistered;
 
   @override
@@ -74,7 +70,7 @@ abstract base class KernelFunction() extends GadgetFunction {
 /// for reading from it.
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_HID`.
-final class HidFunction({
+class HidFunction({
   required this.reportDescriptor,
   required this.reportLength,
   this.subClass = 0,
@@ -115,9 +111,24 @@ final class HidFunction({
   /// The device file, such as `/dev/hidg0`. Available once registered.
   String get devicePath => native.devicePath();
 
-  /// Opens [devicePath]: write input reports to it, read output reports
-  /// from it.
-  Future<RandomAccessFile> open() => File(devicePath).open(mode: .append);
+  RandomAccessFile? _file;
+
+  /// The device file, opened on first use: write input reports to it, read
+  /// output reports from it. Available once registered.
+  RandomAccessFile get file =>
+      _file ??= File(devicePath).openSync(mode: .append);
+
+  /// Sends one input report.
+  void sendReport(List<int> report) => file.writeFromSync(report);
+
+  @override
+  @internal
+  FunctionHandle createHandle() {
+    // A new registration has a new device file.
+    _file?.closeSync();
+    _file = null;
+    return super.createHandle();
+  }
 }
 
 /// A logical unit of a [MassStorageFunction].
@@ -165,8 +176,7 @@ final class Lun {
 /// A USB mass storage device (`mass_storage`).
 ///
 /// Requires `CONFIG_USB_CONFIGFS_MASS_STORAGE`.
-final class MassStorageFunction(this.luns, {this.stall})
-    extends KernelFunction {
+class MassStorageFunction(this.luns, {this.stall}) extends KernelFunction {
   /// A mass storage function with one logical unit per entry of [luns].
   this;
 
@@ -218,7 +228,7 @@ enum NetClass() {
 }
 
 /// A network interface between the gadget and the host.
-final class NetFunction(
+class NetFunction(
   this.netClass, {
   this._deviceAddress,
   this._hostAddress,
@@ -279,8 +289,7 @@ final class NetFunction(
 
 /// A serial port: CDC ACM (`acm`, needs `CONFIG_USB_CONFIGFS_ACM`) by
 /// default, or the generic serial driver (`CONFIG_USB_CONFIGFS_SERIAL`).
-final class SerialFunction({this.acm = true, this.console})
-    extends KernelFunction {
+class SerialFunction({this.acm = true, this.console}) extends KernelFunction {
   /// A serial function: CDC ACM if [acm], else the generic serial driver.
   this;
 
@@ -301,7 +310,7 @@ final class SerialFunction({this.acm = true, this.console})
 /// A USB MIDI adapter backed by an ALSA sound card (`midi`).
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_MIDI`.
-final class MidiFunction({
+class MidiFunction({
   this.bufferLength,
   this.id,
   this.inPorts,
@@ -351,7 +360,7 @@ final class MidiFunction({
 /// A USB printer; print jobs arrive on `/dev/g_printerN` (`printer`).
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_PRINTER`.
-final class PrinterFunction({this.pnpString, this.queueLength})
+class PrinterFunction({this.pnpString, this.queueLength})
     extends KernelFunction {
   /// A printer function; `null` settings keep the kernel defaults.
   this;
@@ -372,7 +381,7 @@ final class PrinterFunction({this.pnpString, this.queueLength})
 /// Echoes OUT data back on IN, for testing (`Loopback`).
 ///
 /// Requires `CONFIG_USB_ZERO`.
-final class LoopbackFunction({this.queueLength, this.bulkBufferLength})
+class LoopbackFunction({this.queueLength, this.bulkBufferLength})
     extends KernelFunction {
   /// A loopback function; `null` settings keep the kernel defaults.
   this;
@@ -393,7 +402,7 @@ final class LoopbackFunction({this.queueLength, this.bulkBufferLength})
 /// Sources and sinks data, for throughput testing (`SourceSink`).
 ///
 /// Requires `CONFIG_USB_ZERO`.
-final class SourceSinkFunction({
+class SourceSinkFunction({
   this.pattern,
   this.isocInterval,
   this.isocMaxPacket,
@@ -538,7 +547,7 @@ final class const AudioStream({
 
 /// A USB sound card backed by an ALSA device on the gadget: capture is
 /// audio the gadget sends to the host, playback what it receives.
-final class AudioFunction extends KernelFunction {
+class AudioFunction extends KernelFunction {
   /// USB Audio Class 1 (`uac1`, `CONFIG_USB_CONFIGFS_F_UAC1`).
   AudioFunction.uac1({
     this.capture = const AudioStream(),
@@ -741,7 +750,7 @@ final class VideoFrame {
 /// device the kernel creates.
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_UVC`.
-final class VideoFunction(
+class VideoFunction(
   this.frames, {
   this.streamingInterval,
   this.streamingMaxBurst,
@@ -810,7 +819,7 @@ final class VideoFunction(
 }
 
 /// Any configfs function driver, configured with raw attribute values.
-final class OtherFunction(this.driver, {this.properties = const {}})
+class OtherFunction(this.driver, {this.properties = const {}})
     extends KernelFunction {
   /// A function of kernel [driver] with raw configfs [properties].
   this;

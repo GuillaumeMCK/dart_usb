@@ -1,6 +1,10 @@
 /// @docImport 'package:usb_gadget/src/rust/api/error.dart';
 library;
 
+// Hooks return FutureOr<void> so overrides can be plain `void` methods or
+// `async` ones; the event loop awaits either.
+// ignore_for_file: avoid_futureor_void
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -13,7 +17,7 @@ import 'package:usb_gadget/src/poll_stream.dart';
 import 'package:usb_gadget/src/rust/api.dart' show LocalizedString;
 import 'package:usb_gadget/src/rust/api/custom.dart' as rust;
 import 'package:usb_gadget/src/rust/api/endpoint.dart' as rust;
-import 'package:usb_gadget/src/rust/api/function.dart' show FunctionState;
+import 'package:usb_gadget/src/rust/api/error.dart';
 import 'package:usb_gadget/src/rust/api/gadget.dart' show FunctionHandle;
 import 'package:usb_models/usb_models.dart';
 
@@ -21,27 +25,41 @@ part 'endpoint.dart';
 part 'events.dart';
 part 'interface.dart';
 
-/// A function implemented in Dart through FunctionFS: its interfaces and
-/// endpoints are declared here, its control requests arrive as [events],
-/// and its data moves through [InEndpoint]s and [OutEndpoint]s.
+/// A function implemented in Dart through FunctionFS.
+///
+/// Declare its interfaces and endpoints, then subclass it and override the
+/// hooks you need:
 ///
 /// ```dart
-/// final ep1 = InEndpoint(), ep2 = OutEndpoint();
-/// final function = CustomFunction([
-///   CustomInterface(
-///     const Class.vendorSpecific(0, 0),
-///     name: 'echo',
-///     endpoints: [CustomEndpoint.bulk(ep1), CustomEndpoint.bulk(ep2)],
-///   ),
-/// ]);
+/// class Echo extends CustomFunction {
+///   Echo()
+///     : super(
+///         interfaces: const [
+///           CustomInterface(
+///             class_: .vendorSpecific(0, 0),
+///             endpoints: [
+///               EndpointTemplate(address: .in_(.ep1), config: .bulk()),
+///               EndpointTemplate(address: .out(.ep2), config: .bulk()),
+///             ],
+///           ),
+///         ],
+///       );
+///
+///   late final epIn = endpointIn(.ep1);
+///   late final epOut = endpointOut(.ep2);
+///
+///   @override
+///   void onEnable() => epOut.stream().listen(epIn.write);
+/// }
 /// ```
 ///
-/// A function can be registered again after its gadget is removed; it then
-/// starts afresh, and streams from the previous registration end.
+/// Control requests reach [onSetup]. The function can be registered again
+/// after its gadget is removed; it then starts afresh.
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_FS`.
-final class CustomFunction(
-  this.interfaces, {
+class CustomFunction({
+  required this.interfaces,
+  this.queueLength = 16,
   this.allControlRecipients = false,
   this.config0Setup = false,
   this.ffsDirectory,
@@ -53,12 +71,36 @@ final class CustomFunction(
   this.ffsNoInit = false,
   this.ffsNoMount = false,
 }) extends GadgetFunction {
-  /// A custom function with [interfaces]; the FunctionFS settings are
-  /// rarely needed.
-  this;
+  /// A function with [interfaces]. Each endpoint keeps [queueLength]
+  /// transfers queued in the kernel. The FunctionFS settings are rarely
+  /// needed.
+  this {
+    if (queueLength < 1) {
+      throw ArgumentError.value(
+        queueLength,
+        'queueLength',
+        'must be at least 1',
+      );
+    }
+    for (final interface in interfaces) {
+      for (final template in interface.endpoints) {
+        final key = (template.address.direction, template.address.number.value);
+        if (_endpoints.containsKey(key)) {
+          throw ArgumentError('endpoint ${template.address} is declared twice');
+        }
+        _endpoints[key] = switch (template.address.direction) {
+          .in_ => InEndpoint._(template, queueLength),
+          .out => OutEndpoint._(template, queueLength),
+        };
+      }
+    }
+  }
 
   /// The interfaces, in order.
   final List<CustomInterface> interfaces;
+
+  /// Transfers each endpoint keeps queued in the kernel.
+  final int queueLength;
 
   /// Receives control requests for any recipient, not only this function's
   /// interfaces and endpoints.
@@ -91,20 +133,106 @@ final class CustomFunction(
   /// Doesn't mount FunctionFS (for an instance mounted elsewhere).
   final bool ffsNoMount;
 
+  final _endpoints = <(Direction, int), EndpointIo>{};
   rust.CustomFunction? _native;
-  Completer<rust.CustomFunction>? _nextNative;
-  var _listening = false;
-
-  /// The current native function, or the next one if there is none yet or
-  /// the current one's gadget was removed.
-  Future<rust.CustomFunction> get _live async {
-    if (_native case final native? when native.state != .removed) return native;
-    return (_nextNative ??= Completer()).future;
-  }
+  CustomFunctionState? _ffsState;
+  final _stateChanges = StreamController<void>.broadcast(sync: true);
 
   rust.CustomFunction get _function =>
       _native ??
-      (throw StateError('CustomFunction is not part of a registered gadget'));
+      (throw StateError('$runtimeType is not part of a registered gadget'));
+
+  /// The IN endpoint declared with [number].
+  InEndpoint endpointIn(EndpointNumber number) =>
+      switch (_endpoints[(Direction.in_, number.value)]) {
+        final InEndpoint e => e,
+        _ => throw ArgumentError('no IN endpoint ${number.value} declared'),
+      };
+
+  /// The OUT endpoint declared with [number].
+  OutEndpoint endpointOut(EndpointNumber number) =>
+      switch (_endpoints[(Direction.out, number.value)]) {
+        final OutEndpoint e => e,
+        _ => throw ArgumentError('no OUT endpoint ${number.value} declared'),
+      };
+
+  /// Where the function is in its life.
+  CustomFunctionState get state => switch (_native) {
+    null => .unregistered,
+    final n when n.state == .removed => .removed,
+    _ => _ffsState ?? .registered,
+  };
+
+  /// Completes once the function reaches [state], such as
+  /// [CustomFunctionState.enabled].
+  Future<void> awaitState(
+    CustomFunctionState state, {
+    Duration? timeout,
+  }) async {
+    Future<void> wait() async {
+      while (this.state != state) {
+        await _stateChanges.stream.first;
+      }
+    }
+
+    await (timeout == null ? wait() : wait().timeout(timeout));
+  }
+
+  void _setState(CustomFunctionState? state) {
+    _ffsState = state;
+    _stateChanges.add(null);
+  }
+
+  @override
+  String? get path => _native?.path;
+
+  /// Where FunctionFS is mounted. Throws a `notReady` [GadgetException]
+  /// until registered.
+  String get mountPath => _function.ffsDir;
+
+  /// The number the host sees for this function's interface [index]
+  /// (FunctionFS renumbers interfaces in composite gadgets). Throws a
+  /// `notReady` [GadgetException] until bound. Doesn't block, so it can be
+  /// used in [onSetup] to check `setup.index`.
+  int interfaceNumber(int index) => _function.interfaceNumber(index);
+
+  // --- Hooks -----------------------------------------------------------------
+
+  /// The gadget was bound to a controller.
+  @protected
+  FutureOr<void> onBind() {}
+
+  /// The gadget was unbound from its controller.
+  @protected
+  FutureOr<void> onUnbind() {}
+
+  /// The host enabled the function: endpoints are usable. Start reading
+  /// and writing here.
+  @protected
+  FutureOr<void> onEnable() {}
+
+  /// The host disabled the function or reset the device; endpoint streams
+  /// end.
+  @protected
+  FutureOr<void> onDisable() {}
+
+  /// The bus was suspended.
+  @protected
+  FutureOr<void> onSuspend() {}
+
+  /// The bus resumed.
+  @protected
+  FutureOr<void> onResume() {}
+
+  /// A control request arrived. Answer it with
+  /// [ControlInRequest.send], [ControlOutRequest.receive],
+  /// [ControlOutRequest.ack] or [ControlRequest.halt] within 4.5 seconds;
+  /// a request still unanswered when this completes is stalled. The default
+  /// stalls everything.
+  @protected
+  FutureOr<void> onSetup(ControlRequest request) {}
+
+  // --- Registration --------------------------------------------------------
 
   @override
   @internal
@@ -118,8 +246,11 @@ final class CustomFunction(
     final native = rust.CustomFunction(spec: _spec());
     var index = 0;
     for (final interface in interfaces) {
-      for (final endpoint in interface.endpoints) {
-        switch (endpoint.io) {
+      for (final template in interface.endpoints) {
+        switch (_endpoints[(
+          template.address.direction,
+          template.address.number.value,
+        )]!) {
           case final InEndpoint e:
             e._attach(native.takeSender(index));
           case final OutEndpoint e:
@@ -129,78 +260,65 @@ final class CustomFunction(
       }
     }
     _native = native;
-    _nextNative?.complete(native);
-    _nextNative = null;
+    _setState(null);
+    unawaited(_run(native));
     return native.handle();
   }
 
-  @override
-  FunctionState get state => _native?.state ?? .unregistered;
+  /// Delivers the native function's events to the hooks until it closes.
+  Future<void> _run(rust.CustomFunction native) async {
+    native.setListening(true);
+    while (identical(native, _native)) {
+      final rust.CustomEvent? event;
+      try {
+        event = await native.nextEvent(const Duration(milliseconds: 200));
+      } on GadgetException {
+        break; // The gadget was removed.
+      }
+      if (event == null) continue;
+      await _dispatch(native, event);
+    }
+    if (identical(native, _native)) _setState(.removed);
+  }
 
-  @override
-  String? get path => _native?.path;
-
-  /// Where FunctionFS is mounted. Throws a `notReady` [GadgetException]
-  /// until registered.
-  String get mountPath => _function.ffsDir;
-
-  /// The interface number the host sees for this function's interface
-  /// [index]. Throws a `notReady` [GadgetException] until bound.
-  ///
-  /// Doesn't block, so it can be used while answering a control request,
-  /// for instance to check `setup.index`.
-  int interfaceNumber(int index) => _function.interfaceNumber(index);
-
-  /// Lifecycle events and control requests. Can be listened to before the
-  /// gadget is registered (or registered again after removal); lifecycle
-  /// events that happened before listening are delivered first.
-  ///
-  /// Answer every [ControlRequest] promptly: unanswered ones are stalled
-  /// after 4.5 seconds, before the host gives up. While nobody listens,
-  /// control requests are stalled at once.
-  ///
-  /// One listener at a time. The stream ends when the gadget is removed.
-  Stream<CustomEvent> get events =>
-      pollStream<rust.CustomFunction, CustomEvent>(
-        native: _live,
-        start: (native) {
-          if (_listening) {
-            throw StateError('CustomFunction.events already has a listener');
-          }
-          _listening = true;
-          native.setListening(true);
-        },
-        stop: (native) {
-          _listening = false;
-          native.setListening(false);
-        },
-        next: (native) async =>
-            switch (await native.nextEvent(const Duration(milliseconds: 200))) {
-              final e? => _event(native, e),
-              null => null,
-            },
-      );
-
-  static CustomEvent _event(rust.CustomFunction function, rust.CustomEvent e) =>
+  Future<void> _dispatch(rust.CustomFunction native, rust.CustomEvent e) async {
+    try {
       switch (e.kind) {
-        .bind => const BindEvent(),
-        .unbind => const UnbindEvent(),
-        .enable => const EnableEvent(),
-        .disable => const DisableEvent(),
-        .suspend => const SuspendEvent(),
-        .resume => const ResumeEvent(),
-        .setupDeviceToHost => ControlInRequest._(
-          function,
-          e.id,
-          SetupPacket.parse(e.setup),
-        ),
-        .setupHostToDevice => ControlOutRequest._(
-          function,
-          e.id,
-          SetupPacket.parse(e.setup),
-        ),
-        .unknown => UnknownEvent(e.code),
-      };
+        case .bind:
+          _setState(.bound);
+          await onBind();
+        case .unbind:
+          _setState(.registered);
+          await onUnbind();
+        case .enable:
+          _setState(.enabled);
+          await onEnable();
+        case .disable:
+          _setState(.disabled);
+          await onDisable();
+        case .suspend:
+          _setState(.suspended);
+          await onSuspend();
+        case .resume:
+          _setState(.enabled);
+          await onResume();
+        case .setupDeviceToHost || .setupHostToDevice:
+          final setup = SetupPacket.parse(e.setup);
+          final request = e.kind == .setupDeviceToHost
+              ? ControlInRequest._(native, e.id, setup)
+              : ControlOutRequest._(native, e.id, setup);
+          try {
+            await onSetup(request);
+          } finally {
+            if (!request.isAnswered) await request.halt();
+          }
+        case .unknown:
+      }
+    } on Object catch (error, stack) {
+      // A failing hook mustn't stop event delivery.
+      Zone.current.handleUncaughtError(error, stack);
+    }
+  }
 
   rust.CustomSpec _spec() {
     final associations = <InterfaceAssociation, int>{};
@@ -210,7 +328,9 @@ final class CustomFunction(
           rust.InterfaceSpec(
             class_: classCodes(i.class_),
             name: _localized(i.name, i.names),
-            endpoints: [for (final e in i.endpoints) e._spec()],
+            endpoints: [
+              for (final e in i.endpoints) _endpointSpec(e, queueLength),
+            ],
             association: switch (i.association) {
               final a? => rust.AssociationSpec(
                 id: associations.putIfAbsent(a, () => associations.length),
@@ -230,8 +350,8 @@ final class CustomFunction(
             customDescriptors: [
               for (final d in i.descriptors)
                 rust.CustomDescriptorSpec(
-                  descriptorType: d.descriptorType,
-                  data: Uint8List.fromList(d.data),
+                  descriptorType: d.bDescriptorType,
+                  data: d.toBytes().sublist(2),
                 ),
             ],
           ),

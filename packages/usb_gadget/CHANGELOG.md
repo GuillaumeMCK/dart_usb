@@ -13,17 +13,19 @@ maintained configfs support. The API is new.
 - **BREAKING**: configfs, FunctionFS, libaio, epoll and ioctl handling moved
   to Rust; the Dart platform layer, `EndpointFile`s and the logger are gone.
   `libaio` is no longer needed; a Rust toolchain is, for the build hook.
-- **BREAKING**: gadgets are described with `Gadget`, `Config` and
-  `GadgetStrings`, then `register()`ed or `bind(udc)`ed, returning a
-  `RegisteredGadget`. UDCs come from `udcs()` and `defaultUdc()`, with
-  `Udc.waitForState`.
-- **BREAKING**: kernel functions are configured classes (`HidFunction`,
-  `MassStorageFunction`, `NetFunction`, `SerialFunction`, `MidiFunction`,
-  `PrinterFunction`, `AudioFunction`, `VideoFunction`, `LoopbackFunction`,
-  `SourceSinkFunction`, `OtherFunction`) instead of subclasses.
-- **BREAKING**: `FunctionFs` and `HidFunctionFs` are replaced by
-  `CustomFunction`: endpoints are `InEndpoint` (write) and `OutEndpoint` (read), and
-  events (including control requests to answer) arrive on `events`.
+- Gadgets keep the 1.x shape: `Gadget`, `Config`, `GadgetStrings`;
+  `await gadget.bind()` (default controller), `gadget.udc?.awaitState`,
+  `await gadget.remove()`. `register()` and `RegisteredGadget` remain for
+  finer control.
+- **BREAKING**: kernel functions take their settings as constructor
+  parameters and can still be subclassed; `HidFunction` has `file` and
+  `sendReport`.
+- **BREAKING**: `FunctionFs` becomes `CustomFunction`: interfaces declare
+  `EndpointTemplate`s, endpoints are fetched with `endpointIn(.ep1)` /
+  `endpointOut(.ep2)` as `InEndpoint`/`OutEndpoint`, and the `onBind` …
+  `onSetup` hooks are overridden as before; `onSetup` receives a typed
+  `ControlRequest` to answer. `HIDFunctionFs` is now `HidFunctionFs`, with
+  the same hooks.
 - **BREAKING**: USB chapter 9 and HID types moved to the shared
   [`usb_models`](../usb_models) package (re-exported), with Effective Dart
   names: `USBDirection` → `Direction`, `USBRecipient` → `Recipient`,
