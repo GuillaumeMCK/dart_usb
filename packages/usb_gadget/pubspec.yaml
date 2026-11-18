@@ -1,5 +1,7 @@
 name: usb_gadget
-description: Implement USB gadgets for UDC-capable Linux systems — Kernel Functions and FunctionFS
+description: >-
+  USB gadgets for Linux in Dart: kernel functions and FunctionFS functions
+  written in Dart, bridging the Rust usb-gadget crate.
 version: 2.0.0
 homepage: https://github.com/GuillaumeMCK/usb-gadget
 
@@ -12,17 +14,15 @@ environment:
 resolution: workspace
 
 dependencies:
+  code_assets: ^1.2.1
   ffi: ^2.1.5
+  flutter_rust_bridge: 2.13.0
+  flutter_rust_bridge_hooks: 2.13.0
   meta: ^1.17.0
   usb_models: ^0.1.0
-  using: ^1.0.5
 
 dev_dependencies:
-  ffigen: ^21.0.0
+  dusb: ^0.1.0
   leancode_lint: ^26.2.0
   lints: ^6.1.0
   test: ^1.25.0
-
-scripts:
-  gen:
-    find lib/src/platform -name "ffigen_*.yaml" | xargs -I {} dart run ffigen --config {}

@@ -1,0 +1,13 @@
+[toolchain]
+# native_toolchain_rust (used by hook/build.dart) requires an exact version
+# for reproducible builds. Targets: Linux, the only OS with USB gadgets.
+channel = "1.93.1"
+targets = [
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-gnu",
+  "armv7-unknown-linux-gnueabihf",
+  "riscv64gc-unknown-linux-gnu",
+  "aarch64-linux-android",
+  "armv7-linux-androideabi",
+  "x86_64-linux-android",
+]

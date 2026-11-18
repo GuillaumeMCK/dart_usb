@@ -4,38 +4,41 @@ The format is based on [Keep a Changelog],
 and this project adheres to [Semantic Versioning].
 
 ## 2.0.0
-### Changed
-- **BREAKING**: the USB chapter 9 and HID types moved to the new
-  [`usb_models`](../usb_models) package, shared with the host-side `dusb`
-  package. `usb_gadget` re-exports it, so imports don't change, but types
-  follow Effective Dart naming:
+A rewrite: usb_gadget now bridges the Rust
+[usb-gadget](https://github.com/surban/usb-gadget) crate instead of
+reimplementing it in Dart, for its asynchronous FunctionFS I/O and
+maintained configfs support. The API is new.
 
-  | 1.x | 2.0 |
-  | --- | --- |
-  | `USBDirection` | `Direction` |
-  | `USBRecipient` | `Recipient` |
-  | `USBRequestType` | `RequestType` |
-  | `USBRequest` | `StandardRequest` |
-  | `USBFeature` | `FeatureSelector` |
-  | `USBDescriptorType` | `DescriptorType` |
-  | `USBLanguageId` | `LanguageId` |
-  | `USBDescriptor` | `Descriptor` |
-  | `RawUSBDescriptor` | `RawDescriptor` |
-  | `USBInterfaceDescriptor` | `InterfaceDescriptor` |
-  | `USBEndpointDescriptor` | `EndpointDescriptor` |
-  | `EndpointDescriptor` (speed-independent template) | `EndpointTemplate` |
-  | `USBInterfaceAssocDescriptor` | `InterfaceAssociationDescriptor` |
-  | `USBSSEPCompDescriptor` | `SuperSpeedEndpointCompanionDescriptor` |
-  | `USBSSPIsocEndpointDescriptor` | `SuperSpeedPlusIsocCompanionDescriptor` |
-  | `SSEndpointAttributes` | `SuperSpeedEndpointAttributes` |
-  | `HIDRequest`, `HIDDescriptor`, `HIDDescriptorType`, `HIDReportType`, `HIDEndpointConfig` | `HidRequest`, `HidDescriptor`, `HidDescriptorType`, `HidReportType`, `HidEndpointConfig` |
+### Changed
+- **BREAKING**: configfs, FunctionFS, libaio, epoll and ioctl handling moved
+  to Rust; the Dart platform layer, `EndpointFile`s and the logger are gone.
+  `libaio` is no longer needed; a Rust toolchain is, for the build hook.
+- **BREAKING**: gadgets are described with `Gadget`, `Config` and
+  `GadgetStrings`, then `register()`ed or `bind(udc)`ed, returning a
+  `RegisteredGadget`. UDCs come from `udcs()` and `defaultUdc()`, with
+  `Udc.waitForState`.
+- **BREAKING**: kernel functions are configured classes (`HidFunction`,
+  `MassStorageFunction`, `NetFunction`, `SerialFunction`, `MidiFunction`,
+  `PrinterFunction`, `AudioFunction`, `VideoFunction`, `LoopbackFunction`,
+  `SourceSinkFunction`, `OtherFunction`) instead of subclasses.
+- **BREAKING**: `FunctionFs` and `HidFunctionFs` are replaced by
+  `CustomFunction`: endpoints are `EndpointSender`/`EndpointReceiver`, and
+  events (including control requests to answer) arrive on `events`.
+- **BREAKING**: USB chapter 9 and HID types moved to the shared
+  [`usb_models`](../usb_models) package (re-exported), with Effective Dart
+  names: `USBDirection` → `Direction`, `USBRecipient` → `Recipient`,
+  `USBRequestType` → `RequestType`, `USBRequest` → `StandardRequest`,
+  `USBDescriptorType` → `DescriptorType`, `USBLanguageId` → `LanguageId`,
+  `USBInterfaceDescriptor` → `InterfaceDescriptor`,
+  `USBEndpointDescriptor` → `EndpointDescriptor`, `HIDDescriptor` →
+  `HidDescriptor`, and so on.
+- Errors are `GadgetException`s with a `GadgetErrorKind`.
 
 ### Added
-- Descriptors can be parsed as well as built (`InterfaceDescriptor.parse`,
-  `EndpointDescriptor.parse`, `DeviceDescriptor`, `ConfigurationDescriptor`),
-  and `SetupEvent.packet` returns the request as a shared `SetupPacket`.
-- `Class.raw` for class codes outside `ClassType`; `Class` and `Id` now have
-  value equality and readable `toString`.
+- Functions the Dart version lacked access to through the crate: WebUSB and
+  Microsoft OS descriptors, interface associations, Microsoft extended
+  properties, and custom class descriptors on custom interfaces.
+- End-to-end tests against `dummy_hcd`, using `dusb` as the host.
 
 ## 1.0.3
 ### Fixed

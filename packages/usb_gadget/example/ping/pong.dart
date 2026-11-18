@@ -1,83 +1,51 @@
+// The device side of ping/pong: a custom function with two bulk endpoints
+// that echoes everything the host sends. Run as root on a board with a USB
+// device controller, then run ping.dart on the host.
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:usb_gadget/usb_gadget.dart';
 
-class PongFunction extends FunctionFs {
-  PongFunction()
-    : super(
-        name: 'echo',
-        interfaces: [
-          FunctionFsInterface(
-            class_: .interfaceSpecific(),
-            interfaceNumber: .interface0,
-            endpoints: [
-              const EndpointTemplate(address: .in_(.ep1), config: .bulk()),
-              const EndpointTemplate(address: .out(.ep2), config: .bulk()),
-            ],
-          ),
-        ],
-        strings: {
-          .enUS: ['Pong Function'],
-        },
-        speeds: {.fullSpeed, .highSpeed},
-      );
-
-  late final EndpointInFile epIn = getEndpoint<EndpointInFile>(.ep1);
-  late final EndpointOutFile epOut = getEndpoint<EndpointOutFile>(.ep2);
-
-  StreamSubscription<Uint8List>? _dataSub;
-
-  @override
-  Future<void> onEnable() async {
-    super.onEnable();
-    _dataSub ??= epOut.stream.listen(_onData);
-  }
-
-  @override
-  Future<void> onDisable() async {
-    await release(partial: true);
-    super.onDisable();
-  }
-
-  @override
-  Future<void> release({bool partial = false}) async {
-    if (isReleased) return;
-    await _dataSub?.cancel();
-    _dataSub = null;
-    if (partial) return;
-    await super.release();
-  }
-
-  Future<void> _onData(Uint8List data) async {
-    if (state != .enabled) return;
-    epIn.write(data);
-  }
-}
-
 Future<void> main() async {
+  final tx = EndpointSender(), rx = EndpointReceiver();
+  final function = CustomFunction([
+    CustomInterface(
+      const Class.vendorSpecific(0, 0),
+      name: 'pong',
+      endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
+    ),
+  ]);
   final gadget = Gadget(
-    name: 'echo_gadget',
-    id: Id(vendor: 0x1d6b, product: 0x0104),
+    id: const Id(vendor: 0x1209, product: 0x0001), // pid.codes test ID
     strings: {
-      .enUS: const .new(
-        manufacturer: 'Dart USB',
-        product: 'Pong Device',
-        serialnumber: '123456',
-      ),
+      .enUS: const GadgetStrings(manufacturer: 'usb_gadget', product: 'Pong'),
     },
     configs: [
-      .new(functions: [PongFunction()]),
+      Config(description: 'Pong', functions: [function]),
     ],
   );
 
-  try {
-    final reg = await gadget.register();
-    await reg.udc?.awaitState(.configured);
-    stdout.writeln('Pong Device ready. Press Ctrl+C to exit.');
-    await ProcessSignal.sigint.watch().first;
-  } finally {
-    await gadget.remove();
-  }
+  final registered = await gadget.bind(await defaultUdc());
+  StreamSubscription<void>? echo;
+  final events = function.events.listen((event) async {
+    switch (event) {
+      case EnableEvent():
+        echo ??= rx
+            .stream()
+            .asyncMap(tx.sendAndFlush)
+            .listen(null, onError: (Object e) => stderr.writeln(e));
+      case DisableEvent():
+        await echo?.cancel();
+        echo = null;
+      case final ControlRequest request:
+        await request.halt();
+      default:
+    }
+  });
+
+  stdout.writeln('Pong ready. Ctrl+C to exit.');
+  await ProcessSignal.sigint.watch().first;
+  await echo?.cancel();
+  await events.cancel();
+  await registered.remove();
 }

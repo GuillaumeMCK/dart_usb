@@ -1,65 +1,48 @@
-import 'dart:async';
+// Exposes disk images as a USB drive. Run as root on a board with a USB
+// device controller:
+//
+//   dart example/mass_storage.dart [--udc NAME] IMAGE [IMAGE ...]
 import 'dart:io';
 
 import 'package:usb_gadget/usb_gadget.dart';
 
 Future<void> main(List<String> args) async {
-  UDC? udc;
-  List<String> paths = const [];
-
-  switch (args) {
-    case ['--help', ...] || ['-h', ...]:
-      stdout.writeln(
-        'Usage: dart mass_storage.dart [--udc UDC_NAME] LUN_FILE [LUN_FILE ...]\n',
-      );
-      exit(0);
-    case ['--udc', final String name, ...final sources]:
-      udc = .fromName(name);
-      paths = sources;
-    case [...final files]:
-      paths = [
-        for (final file in files)
-          if (File(file).existsSync() || Directory(file).existsSync()) file,
-      ];
-  }
-
-  if (paths.isEmpty) {
+  final (udcName, images) = switch (args) {
+    ['--udc', final name, ...final images] => (name, images),
+    _ => (null, args),
+  };
+  if (images.isEmpty || images.any((i) => i.startsWith('-'))) {
     stderr.writeln(
-      'Error: At least one LUN file or directory must be specified.',
+      'Usage: dart mass_storage.dart [--udc NAME] IMAGE [IMAGE ...]',
     );
-    exit(1);
+    exit(64);
   }
 
+  final storage = MassStorageFunction([
+    for (final image in images) Lun(image, removable: true),
+  ]);
   final gadget = Gadget(
-    name: 'mass_storage_gadget',
-    id: .new(vendor: 0x1d6b, product: 0x0104),
-    class_: .interfaceSpecific(),
+    id: const Id(vendor: 0x1209, product: 0x0001), // pid.codes test ID
     strings: {
-      .enUS: const .new(
-        manufacturer: 'Evil Corp',
-        product: 'USB Mass Storage Gadget',
-        serialnumber: 'MSD123456',
+      .enUS: const GadgetStrings(
+        manufacturer: 'usb_gadget',
+        product: 'Mass Storage',
+        serialNumber: '000000000001',
       ),
     },
     configs: [
-      .new(
-        description: 'Mass Storage Configuration',
-        maxPower: const MaxPower(500),
-        functions: [
-          MassStorageFunction(
-            name: 'storage',
-            luns: [...paths.map((p) => .new(path: p, removable: true))],
-          ),
-        ],
-      ),
+      Config(description: 'Mass Storage', functions: [storage]),
     ],
   );
-  try {
-    final reg = await gadget.register();
-    reg.bind(udc ?? defaultUDC);
-    stdout.writeln('Ctrl+C to exit.');
-    await ProcessSignal.sigint.watch().first;
-  } finally {
-    await gadget.remove();
-  }
+
+  final udc = switch (udcName) {
+    final name? => (await udcs()).firstWhere((u) => u.name == name),
+    null => await defaultUdc(),
+  };
+  final registered = await gadget.bind(udc);
+  stdout.writeln(
+    'Serving ${images.join(', ')} on ${udc.name}. Ctrl+C to exit.',
+  );
+  await ProcessSignal.sigint.watch().first;
+  await registered.remove();
 }

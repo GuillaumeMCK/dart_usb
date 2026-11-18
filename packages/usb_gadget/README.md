@@ -1,201 +1,146 @@
-# usb-gadget
+# usb_gadget
 
-[![pub package](https://img.shields.io/pub/v/usb_gadget.svg)](https://pub.dev/packages/usb_gadget)
 [![Apache 2.0 license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A Dart library for turning any Linux device with a USB controller into a USB peripheral —
-keyboard, mouse, storage, network adapter, audio device, or your own custom protocol.
+Turn a Linux device with a USB device controller (UDC) into a USB
+peripheral: keyboard, storage, network adapter, serial port, sound card,
+camera, or your own protocol implemented in Dart.
 
-Requires a device with a USB Device Controller (UDC). Embedded boards (Raspberry Pi 4/5, Zero 2 W)
-and Android phones with NDK support (e.g. OnePlus 7 Pro) work great; standard PCs typically don't 
-have one.
+It bridges the Rust [usb-gadget](https://github.com/surban/usb-gadget) crate
+with [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/) and Dart
+build hooks: configfs setup and FunctionFS I/O (with the kernel's
+asynchronous I/O, several transfers in flight) run in Rust, while gadgets,
+functions and control requests are plain Dart. USB types and descriptors
+come from [`usb_models`](../usb_models) (re-exported), shared with the
+host-side [`dusb`](../dusb).
 
-```shell
-  dart pub add usb_gadget
-```
+Boards with a UDC include the Raspberry Pi 4/5 and Zero 2 W; most PCs have
+none. Linux's `dummy_hcd` module adds a virtual one for testing.
 
 ## Requirements
 
-```bash
-sudo apt-get install libaio-dev                  # library required by this package
-sudo modprobe libcomposite                       # kernel module for USB gadget support
-sudo mount -t configfs none /sys/kernel/config   # if not already mounted
+- Linux with configfs gadget support (`CONFIG_USB_CONFIGFS`), run as root.
+- A Rust toolchain ([rustup](https://rustup.rs)): the build hook compiles the
+  bridge on first build. No C libraries are needed.
+
+```sh
+sudo modprobe libcomposite
+sudo mount -t configfs none /sys/kernel/config  # if not already mounted
 ```
 
-## Example
+## Kernel functions
+
+The kernel implements the function; you configure it and use the device it
+creates.
 
 ```dart
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:usb_gadget/usb_gadget.dart';
 
-class Keyboard extends HIDFunction {
-  Keyboard() : super(
-    name: 'keyboard',
-    descriptor: .fromList([
-      0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x05, 0x07,
-      0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01,
-      0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95, 0x01,
-      0x75, 0x08, 0x81, 0x01, 0x95, 0x06, 0x75, 0x08,
-      0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00,
-      0x29, 0x65, 0x81, 0x00, 0xC0,
-    ]),
-    protocol: 1,
-    subClass: 1,
-    reportLength: 8,
-  );
-
-  void sendKey(int keyCode, {int modifiers = 0}) => file
-    ..writeFromSync(
-      Uint8List(8)
-        ..[0] = modifiers
-        ..[2] = keyCode,
-    )
-    ..writeFromSync(Uint8List(8));
-}
-
 Future<void> main() async {
-  final keyboard = Keyboard();
+  final serial = SerialFunction(); // CDC ACM
   final gadget = Gadget(
-    name: 'hid_keyboard',
-    id: Id(vendor: 0x1234, product: 0x5679),
-    class_: .interfaceSpecific(),
-    strings: {
-      .enUS: const .new(
-        manufacturer: 'ACME Corp',
-        product: 'USB Keyboard',
-        serialnumber: 'KB001',
-      ),
-    },
-    configs: [.new(description: 'A Keyboard', functions: [keyboard])],
+    id: const Id(vendor: 0x1209, product: 0x0001),
+    strings: {.enUS: const GadgetStrings(manufacturer: 'ACME', product: 'Widget', serialNumber: '0001')},
+    configs: [Config(description: 'Serial', functions: [serial])],
   );
 
-  try {
-    final reg = await gadget.register();
-    reg.bind(defaultUDC);
-    await reg.udc?.awaitState(.configured);
-    await Future.delayed(const .new(milliseconds: 100));
-    [0x0B, 0x08, 0x0F, 0x0F, 0x12, 0x2C, 0x1A, 0x12, 0x15, 0x0F, 0x07, 0x28]
-    // Write "hello world\n"
-    .forEach(keyboard.sendKey);
-    await ProcessSignal.sigint.watch().first;
-  } finally {
-    await gadget.remove();
+  final registered = await gadget.bind(await defaultUdc());
+  print('host-facing serial port: ${serial.devicePath}'); // /dev/ttyGS0
+  // ...
+  await registered.remove();
+}
+```
+
+| Function | Class | Kernel option |
+| --- | --- | --- |
+| HID | `HidFunction` | `CONFIG_USB_CONFIGFS_F_HID` |
+| Mass storage | `MassStorageFunction` | `CONFIG_USB_CONFIGFS_MASS_STORAGE` |
+| Network (ECM, EEM, NCM, RNDIS) | `NetFunction` | `CONFIG_USB_CONFIGFS_{ECM,ECM_SUBSET,EEM,NCM,RNDIS}` |
+| Serial (ACM, generic) | `SerialFunction` | `CONFIG_USB_CONFIGFS_{ACM,SERIAL}` |
+| MIDI | `MidiFunction` | `CONFIG_USB_CONFIGFS_F_MIDI` |
+| Printer | `PrinterFunction` | `CONFIG_USB_CONFIGFS_F_PRINTER` |
+| Audio (UAC1, UAC2) | `AudioFunction.uac1` / `.uac2` | `CONFIG_USB_CONFIGFS_F_UAC{1,2}` |
+| Video (UVC) | `VideoFunction` | `CONFIG_USB_CONFIGFS_F_UVC` |
+| Loopback, source/sink | `LoopbackFunction`, `SourceSinkFunction` | `CONFIG_USB_ZERO` |
+| Any other driver | `OtherFunction` | |
+
+## Custom functions
+
+A `CustomFunction` is implemented in Dart through FunctionFS
+(`CONFIG_USB_CONFIGFS_F_FS`). Endpoints are declared with an
+`EndpointSender` (IN, to the host) or `EndpointReceiver` (OUT, from the
+host); control requests arrive as events to answer.
+
+```dart
+final tx = EndpointSender(), rx = EndpointReceiver();
+final echo = CustomFunction([
+  CustomInterface(
+    const Class.vendorSpecific(0, 0),
+    name: 'echo',
+    endpoints: [CustomEndpoint.bulk(tx), CustomEndpoint.bulk(rx)],
+  ),
+]);
+
+final registered = await Gadget(
+  id: const Id(vendor: 0x1209, product: 0x0001),
+  configs: [Config(functions: [echo])],
+).bind(await defaultUdc());
+
+await for (final event in echo.events) {
+  switch (event) {
+    case EnableEvent():
+      // Keeps 16 receive buffers queued; sends each chunk back.
+      rx.stream().asyncMap(tx.sendAndFlush).listen(null);
+    case ControlInRequest(:final setup) when setup.type == .vendor:
+      await event.send([1, 2, 3]);
+    case final ControlRequest request:
+      await request.halt(); // stall what we don't handle
+    default:
   }
 }
 ```
-> [!NOTE]
-> More examples (gamepad, mass storage, custom FunctionFS) are in [`example/`](example/).
 
-> [!TIP]
-> Compile to a native executable for production use — JIT latency can cause timing violations 
-> in FunctionFS gadgets.
-> ```bash
-> dart compile exe bin/app.dart -o my_gadget && sudo ./my_gadget
-> ```
-> Enable debug logging at compile time:
-> ```bash
-> dart compile exe \
->   -DUSB_GADGET_LOG=true \
->   -DUSB_GADGET_LOG_COLORS=true \
->   -DUSB_GADGET_LOG_LEVEL=0 \
->   bin/app.dart -o my_gadget
-> ```
+Each control request must be answered once: `send` (IN), `receive` (OUT) or
+`halt`. Unanswered requests are stalled after 4.5 seconds.
 
-## Kernel configuration
+## Examples
 
-Most embedded distributions ship with the required options already enabled. To verify:
+See [example/](example): a keyboard, a gamepad implemented as a custom
+function, a USB drive, and a bulk echo gadget with a `dusb` host program.
 
-```bash
-zcat /proc/config.gz | grep -E 'CONFIG_USB_(GADGET|CONFIGFS|FUNCTIONFS)'
+## Testing
+
+`test/models_test.dart` runs anywhere. `test/native_test.dart` loads the
+native library on any Linux machine. `test/gadget_test.dart` registers
+gadgets on the virtual `dummy_hcd` controller and talks to them with `dusb`
+on the same machine:
+
+```sh
+sudo modprobe dummy_hcd libcomposite
+sudo dart test test/gadget_test.dart
 ```
 
-<details>
-<summary>Full list of kernel options</summary>
+## Regenerating the bindings
 
-- `CONFIG_USB_GADGET`
-- `CONFIG_USB_CONFIGFS`
-- `CONFIG_USB_FUNCTIONFS`
-- `CONFIG_USB_CONFIGFS_F_HID`
-- `CONFIG_USB_CONFIGFS_F_FS`
-- `CONFIG_USB_CONFIGFS_MASS_STORAGE`
-- `CONFIG_USB_CONFIGFS_SERIAL`
-- `CONFIG_USB_CONFIGFS_ACM`
-- `CONFIG_USB_CONFIGFS_NCM`
-- `CONFIG_USB_CONFIGFS_ECM`
-- `CONFIG_USB_CONFIGFS_ECM_SUBSET`
-- `CONFIG_USB_CONFIGFS_RNDIS`
-- `CONFIG_USB_CONFIGFS_EEM`
-- `CONFIG_USB_CONFIGFS_F_PRINTER`
-- `CONFIG_USB_CONFIGFS_F_MIDI`
-- `CONFIG_USB_CONFIGFS_F_UAC1`
-- `CONFIG_USB_CONFIGFS_F_UAC2`
-- `CONFIG_USB_CONFIGFS_F_UVC`
+The Rust API lives in `rust/src/api`. Regenerate the Dart side with
+`flutter_rust_bridge_codegen generate`. The crate only builds for Linux, so
+on another OS point cargo at a Linux target, with a C cross-compiler for
+that target (used by a dependency's build script):
 
-</details>
+```sh
+CARGO_BUILD_TARGET=aarch64-unknown-linux-gnu \
+CC_aarch64_unknown_linux_gnu=<linux cross C compiler> \
+  flutter_rust_bridge_codegen generate
+```
 
 ## Android
 
-No pre-built Dart SDK exists for Android — you must cross-compile both the SDK and `libaio` and
-deploy to the device. The resulting binary runs from the Android command line only, with access to
-`dart:core` APIs only.
+The crate supports Android and the bridge is built for Android targets, but
+running a Dart program on a rooted phone with this 2.0 release is untested.
 
-<details>
-<summary>Setup instructions</summary>
+## Credits
 
-**1. Build the Dart SDK for Android**
-
-Follow the [official Dart SDK build guide](https://github.com/dart-lang/sdk/blob/main/docs/Building.md),
-then add `"download_android_deps": True` to `custom_vars` in your `.gclient` file and run:
-
-```bash
-gclient sync
-./tools/build.py --mode=release --arch=arm64 --os=android create_sdk
-adb push out/android/ReleaseAndroidARM64/dart-sdk /data/local/tmp/dart-sdk
-```
-
-**2. Cross-compile `libaio`**
-
-```bash
-git clone https://pagure.io/libaio.git && cd libaio
-
-export TOOLCHAIN=<PATH>/dart-sdk/sdk/third_party/android_tools/ndk/toolchains/llvm/prebuilt/<ARCH>
-export CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
-export AR=$TOOLCHAIN/bin/llvm-ar
-export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
-
-make clean && make CC="$CC" AR="$AR" RANLIB="$RANLIB"
-adb push src/libaio.so.1.0.2 /data/local/tmp/
-adb shell ln -s /data/local/tmp/libaio.so.1.0.2 /data/local/tmp/libaio.so
-```
-
-**3. Compile and run on-device**
-
-```bash
-adb push /path/to/your/project /data/local/tmp/project && adb shell
-su
-export PATH=/data/local/tmp/dart-sdk/bin:$PATH PUB_CACHE=/data/local/tmp/.pub-cache/
-cd /data/local/tmp/project && dart pub get
-dart compile exe bin/your_app.dart -o app && chmod +x app
-
-# Detach UDC from the Android USB stack
-ORIGINAL=$(getprop sys.usb.config)
-setprop sys.usb.config none && sleep 1
-mount -t configfs none /sys/kernel/config
-
-LD_LIBRARY_PATH=/data/local/tmp ./app
-sudo ./app
-
-setprop sys.usb.config "$ORIGINAL"
-```
-
-</details>
-
-## Credits & References
-
-- https://github.com/vpelletier/python-functionfs
-- https://github.com/surban/usb-gadget
-- https://www.beyondlogic.org/usbnutshell/usb1.shtml
-- https://www.kernel.org/doc/Documentation/filesystems/configfs/configfs.txt
-- https://www.kernel.org/doc/html/latest/driver-api/usb/gadget.html
+- [usb-gadget](https://github.com/surban/usb-gadget) by Sebastian Urban, which
+  does the work underneath.
+- [python-functionfs](https://github.com/vpelletier/python-functionfs)
+- [Linux USB gadget API](https://www.kernel.org/doc/html/latest/driver-api/usb/gadget.html)
