@@ -1,15 +1,7 @@
-/// @docImport 'package:usb_gadget/src/function.dart';
-library;
+part of 'custom.dart';
 
 // Hooks return FutureOr<void>, like CustomFunction's.
 // ignore_for_file: avoid_futureor_void
-
-import 'dart:async';
-import 'dart:typed_data';
-
-import 'package:meta/meta.dart';
-import 'package:usb_gadget/src/custom/custom.dart';
-import 'package:usb_models/usb_models.dart';
 
 /// A HID device implemented in Dart: a [CustomFunction] that answers the
 /// HID class requests itself, where [HidFunction] leaves them to the
@@ -36,13 +28,13 @@ import 'package:usb_models/usb_models.dart';
 /// It answers GET_DESCRIPTOR (HID and report), GET_REPORT ([onGetReport]),
 /// SET_REPORT ([onSetReport]), GET/SET_IDLE ([onSetIdle]) and
 /// GET/SET_PROTOCOL ([onSetProtocol]); everything else goes to
-/// [onOtherSetup].
+/// [onOtherSetup]. Override those rather than [onSetup].
 class HidFunctionFs({
   required this.config,
   required List<int> reportDescriptor,
   String name = '',
   this.subClass = 0,
-  int protocol = 0,
+  this.interfaceProtocol = 0,
   int hidVersion = 0x0111,
   int countryCode = 0,
   super.queueLength,
@@ -51,16 +43,10 @@ class HidFunctionFs({
   /// [reportDescriptor].
   this
     : reportDescriptor = Uint8List.fromList(reportDescriptor),
-      _protocol = protocol,
-      hidDescriptor = HidDescriptor(
-        hidVersion: hidVersion,
-        countryCode: countryCode,
-        reportLength: reportDescriptor.length,
-      ),
       super(
         interfaces: [
           CustomInterface(
-            class_: Class(.hid, subClass, protocol),
+            class_: Class(.hid, subClass, interfaceProtocol),
             name: name,
             endpoints: config.descriptors
                 .whereType<EndpointTemplate>()
@@ -82,18 +68,28 @@ class HidFunctionFs({
   /// The report descriptor the host reads.
   final Uint8List reportDescriptor;
 
-  /// The HID class descriptor.
-  final HidDescriptor hidDescriptor;
-
   /// 1 for a boot interface device.
   final int subClass;
 
-  int _protocol;
+  /// `bInterfaceProtocol`: for boot devices, 1 keyboard and 2 mouse.
+  final int interfaceProtocol;
 
-  /// The protocol in use: for boot devices, 0 boot and 1 report.
-  int get protocol => _protocol;
+  /// The HID class descriptor.
+  HidDescriptor get hidDescriptor =>
+      interfaces.single.descriptors.single as HidDescriptor;
+
+  /// Whether the host selected the boot protocol with SET_PROTOCOL. Devices
+  /// start in the report protocol, and return to it when disabled.
+  bool get bootProtocol => _bootProtocol;
+  var _bootProtocol = false;
 
   final _idleRates = <int, int>{};
+
+  @override
+  void _reset() {
+    _bootProtocol = false;
+    _idleRates.clear();
+  }
 
   /// The interrupt IN endpoint, for input reports.
   InEndpoint get epIn => endpointIn(
@@ -125,19 +121,25 @@ class HidFunctionFs({
   @protected
   FutureOr<void> onSetIdle(int reportId, int duration) {}
 
-  /// The host switched between the boot (0) and report (1) protocols.
+  /// The host switched to the boot protocol ([boot]) or the report one.
   @protected
-  FutureOr<void> onSetProtocol(int protocol) {}
+  FutureOr<void> onSetProtocol({required bool boot}) {}
 
   /// A request that isn't a HID request. The default stalls it.
   @protected
   FutureOr<void> onOtherSetup(ControlRequest request) {}
 
   @override
-  @mustCallSuper
   Future<void> onSetup(ControlRequest request) async {
     final ControlRequest(:setup) = request;
     final low = setup.value & 0xFF, high = setup.value >> 8;
+    // Report types outside 1-3 are invalid; they stall (unanswered).
+    final reportType = switch (high) {
+      1 => HidReportType.input,
+      2 => HidReportType.output,
+      3 => HidReportType.feature,
+      _ => null,
+    };
     switch ((request, setup.type, setup.request)) {
       case (final ControlInRequest r, .standard, 0x06)
           when high == HidDescriptorType.hid.value:
@@ -146,10 +148,12 @@ class HidFunctionFs({
           when high == HidDescriptorType.report.value:
         await r.send(reportDescriptor);
       case (final ControlInRequest r, .class_, 0x01): // GET_REPORT
-        final report = await onGetReport(HidReportType.fromByte(high), low);
+        if (reportType == null) return;
+        final report = await onGetReport(reportType, low);
         if (report != null) await r.send(report);
       case (final ControlOutRequest r, .class_, 0x09): // SET_REPORT
-        await onSetReport(HidReportType.fromByte(high), low, await r.receive());
+        if (reportType == null) return;
+        await onSetReport(reportType, low, await r.receive());
       case (final ControlInRequest r, .class_, 0x02): // GET_IDLE
         await r.send([_idleRates[low] ?? _idleRates[0] ?? 0]);
       case (final ControlOutRequest r, .class_, 0x0A): // SET_IDLE
@@ -157,11 +161,14 @@ class HidFunctionFs({
         await r.ack();
         await onSetIdle(low, high);
       case (final ControlInRequest r, .class_, 0x03): // GET_PROTOCOL
-        await r.send([_protocol]);
-      case (final ControlOutRequest r, .class_, 0x0B): // SET_PROTOCOL
-        _protocol = low;
+        await r.send([if (_bootProtocol) 0 else 1]);
+      case (final ControlOutRequest r, .class_, 0x0B) // SET_PROTOCOL
+          when low <= 1:
+        _bootProtocol = low == 0;
         await r.ack();
-        await onSetProtocol(low);
+        await onSetProtocol(boot: _bootProtocol);
+      case (ControlOutRequest(), .class_, 0x0B):
+        return; // Neither boot (0) nor report (1): stall.
       default:
         await onOtherSetup(request);
     }

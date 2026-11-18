@@ -1,3 +1,4 @@
+/// @docImport 'package:usb_gadget/src/function.dart';
 /// @docImport 'package:usb_gadget/src/rust/api/error.dart';
 library;
 
@@ -23,6 +24,7 @@ import 'package:usb_models/usb_models.dart';
 
 part 'endpoint.dart';
 part 'events.dart';
+part 'hid.dart';
 part 'interface.dart';
 
 /// A function implemented in Dart through FunctionFS.
@@ -53,8 +55,13 @@ part 'interface.dart';
 /// }
 /// ```
 ///
-/// Control requests reach [onSetup]. The function can be registered again
-/// after its gadget is removed; it then starts afresh.
+/// Events arrive in order. Lifecycle hooks such as [onEnable] are started
+/// and not awaited, so they may run for as long as they like (sending
+/// reports until disabled, say). [onSetup] is awaited, as its answer is
+/// part of the transfer. Errors from any hook go to [onError].
+///
+/// The function can be registered again after its gadget is removed; it
+/// then starts afresh.
 ///
 /// Requires `CONFIG_USB_CONFIGFS_F_FS`.
 class CustomFunction({
@@ -89,8 +96,8 @@ class CustomFunction({
           throw ArgumentError('endpoint ${template.address} is declared twice');
         }
         _endpoints[key] = switch (template.address.direction) {
-          .in_ => InEndpoint._(template, queueLength),
-          .out => OutEndpoint._(template, queueLength),
+          .in_ => InEndpoint._(this, template, queueLength),
+          .out => OutEndpoint._(this, template, queueLength),
         };
       }
     }
@@ -136,6 +143,7 @@ class CustomFunction({
   final _endpoints = <(Direction, int), EndpointIo>{};
   rust.CustomFunction? _native;
   CustomFunctionState? _ffsState;
+  CustomFunctionState? _beforeSuspend;
   final _stateChanges = StreamController<void>.broadcast(sync: true);
 
   rust.CustomFunction get _function =>
@@ -155,6 +163,12 @@ class CustomFunction({
         final OutEndpoint e => e,
         _ => throw ArgumentError('no OUT endpoint ${number.value} declared'),
       };
+
+  /// Whether the native function is gone: never registered, or removed.
+  bool get _closed => switch (_native) {
+    null => true,
+    final n => n.state == .removed || _ffsState == .removed,
+  };
 
   /// Where the function is in its life.
   CustomFunctionState get state => switch (_native) {
@@ -229,8 +243,22 @@ class CustomFunction({
   /// [ControlOutRequest.ack] or [ControlRequest.halt] within 4.5 seconds;
   /// a request still unanswered when this completes is stalled. The default
   /// stalls everything.
+  ///
+  /// Awaited: later events wait until it completes.
   @protected
   FutureOr<void> onSetup(ControlRequest request) {}
+
+  /// A hook threw [error], or the function failed. The default passes it to
+  /// the current zone, which ends a command-line program; override it to
+  /// log instead.
+  @protected
+  void onError(Object error, StackTrace stack) =>
+      Zone.current.handleUncaughtError(error, stack);
+
+  /// Resets per-connection state when the host disables the function or
+  /// the gadget is unbound or registered again. For subclasses in this
+  /// library, which can't rely on users calling `super` in hooks.
+  void _reset() {}
 
   // --- Registration --------------------------------------------------------
 
@@ -241,8 +269,8 @@ class CustomFunction({
       return native.handle();
     }
     // First registration, or a new one after removal: FunctionFS files are
-    // single-use, so build everything again.
-    _native?.dispose();
+    // single-use, so build everything again. The old native is left to its
+    // finalizer: a late answer may still be on its way to it.
     final native = rust.CustomFunction(spec: _spec());
     var index = 0;
     for (final interface in interfaces) {
@@ -260,6 +288,8 @@ class CustomFunction({
       }
     }
     _native = native;
+    _beforeSuspend = null;
+    _reset();
     _setState(null);
     unawaited(_run(native));
     return native.handle();
@@ -272,8 +302,11 @@ class CustomFunction({
       final rust.CustomEvent? event;
       try {
         event = await native.nextEvent(const Duration(milliseconds: 200));
-      } on GadgetException {
-        break; // The gadget was removed.
+      } on GadgetException catch (error, stack) {
+        // `disconnected`: the gadget was removed. Anything else is a
+        // FunctionFS failure, after which the function is closed too.
+        if (error.kind != .disconnected) _report(error, stack);
+        break;
       }
       if (event == null) continue;
       await _dispatch(native, event);
@@ -281,42 +314,68 @@ class CustomFunction({
     if (identical(native, _native)) _setState(.removed);
   }
 
-  Future<void> _dispatch(rust.CustomFunction native, rust.CustomEvent e) async {
+  void _report(Object error, StackTrace stack) {
     try {
-      switch (e.kind) {
-        case .bind:
-          _setState(.bound);
-          await onBind();
-        case .unbind:
-          _setState(.registered);
-          await onUnbind();
-        case .enable:
-          _setState(.enabled);
-          await onEnable();
-        case .disable:
-          _setState(.disabled);
-          await onDisable();
-        case .suspend:
-          _setState(.suspended);
-          await onSuspend();
-        case .resume:
-          _setState(.enabled);
-          await onResume();
-        case .setupDeviceToHost || .setupHostToDevice:
+      onError(error, stack);
+    } on Object catch (e, s) {
+      Zone.current.handleUncaughtError(e, s);
+    }
+  }
+
+  /// Starts a lifecycle hook without waiting for it.
+  void _start(FutureOr<void> Function() hook) {
+    unawaited(Future.sync(hook).then((_) {}, onError: _report));
+  }
+
+  Future<void> _dispatch(rust.CustomFunction native, rust.CustomEvent e) async {
+    switch (e.kind) {
+      case .bind:
+        _setState(.bound);
+        _start(onBind);
+      case .unbind:
+        _reset();
+        _setState(.registered);
+        _start(onUnbind);
+      case .enable:
+        _setState(.enabled);
+        _start(onEnable);
+      case .disable:
+        _reset();
+        _setState(.disabled);
+        _start(onDisable);
+      case .suspend:
+        if (state != .suspended) _beforeSuspend = state;
+        _setState(.suspended);
+        _start(onSuspend);
+      case .resume:
+        _setState(_beforeSuspend ?? .enabled);
+        _beforeSuspend = null;
+        _start(onResume);
+      case .setupDeviceToHost || .setupHostToDevice:
+        final ControlRequest request;
+        try {
           final setup = SetupPacket.parse(e.setup);
-          final request = e.kind == .setupDeviceToHost
+          request = e.kind == .setupDeviceToHost
               ? ControlInRequest._(native, e.id, setup)
               : ControlOutRequest._(native, e.id, setup);
+        } on Object catch (error, stack) {
+          await native.replyHalt(e.id).catchError((_) {});
+          _report(error, stack);
+          return;
+        }
+        try {
+          await onSetup(request);
+        } on Object catch (error, stack) {
+          _report(error, stack);
+        }
+        if (!request.isAnswered) {
           try {
-            await onSetup(request);
-          } finally {
-            if (!request.isAnswered) await request.halt();
+            await request.halt();
+          } on GadgetException {
+            // Already stalled for lateness, or the function closed.
           }
-        case .unknown:
-      }
-    } on Object catch (error, stack) {
-      // A failing hook mustn't stop event delivery.
-      Zone.current.handleUncaughtError(error, stack);
+        }
+      case .unknown:
     }
   }
 

@@ -116,8 +116,11 @@ class Echo extends CustomFunction {
 ```
 
 - **Hooks:** `onBind`, `onUnbind`, `onEnable`, `onDisable`, `onSuspend`,
-  `onResume` and `onSetup`, plain or `async`. `state` and
-  `awaitState(.enabled)` follow the lifecycle.
+  `onResume` and `onSetup`, plain or `async`. Events arrive in order;
+  lifecycle hooks are started and not awaited, so `onEnable` can keep
+  sending until the host disables the function. `onSetup` is awaited.
+  Errors from any hook go to `onError` (by default the zone's uncaught
+  error handler). `state` and `awaitState(.enabled)` follow the lifecycle.
 - **Control requests** are answered once with `send`, `receive`, `ack` or
   `halt`; `send` truncates to the length the host asked for. A request
   still unanswered when `onSetup` completes is stalled, and unanswered ones
@@ -130,8 +133,10 @@ class Echo extends CustomFunction {
   off instead of buffering in Dart.
 - **`HidFunctionFs`** is a ready-made HID custom function: it answers the
   HID class requests and calls `onGetReport`, `onSetReport`, `onSetIdle`
-  and `onSetProtocol`. See [the gamepad example](example/gamepad.dart).
-- **Registering again** after `remove()` starts the function afresh.
+  and `onSetProtocol`. `interfaceProtocol` is `bInterfaceProtocol`
+  (1 keyboard, 2 mouse); `bootProtocol` is what the host selected. See [the gamepad example](example/gamepad.dart).
+- **Registering again** after `remove()` starts the function afresh;
+  registering a gadget that is already registered throws `StateError`.
 
 ## Examples
 

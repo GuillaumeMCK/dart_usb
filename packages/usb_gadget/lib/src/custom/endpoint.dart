@@ -8,9 +8,12 @@ part of 'custom.dart';
 /// [CustomFunction.onEnable] and [CustomFunction.onDisable]). If the
 /// function is registered again, the endpoint follows it.
 sealed class EndpointIo<N extends RustOpaqueInterface>._(
+  this._function,
   this.template,
   this.queueLength,
 ) {
+  final CustomFunction _function;
+
   /// How the endpoint was declared.
   final EndpointTemplate template;
 
@@ -22,7 +25,9 @@ sealed class EndpointIo<N extends RustOpaqueInterface>._(
   Completer<N>? _nextNative;
 
   void _attach(N native) {
-    _native?.dispose();
+    // Not disposed here: a stream may still be reading from it. It sees
+    // that it was replaced (see [_isCurrent]) and stops; the finalizer
+    // frees it.
     _native = native;
     _nextNative?.complete(native);
     _nextNative = null;
@@ -31,6 +36,8 @@ sealed class EndpointIo<N extends RustOpaqueInterface>._(
   /// The current native endpoint, or the first one once registered.
   Future<N> get _live async =>
       _native ?? await (_nextNative ??= Completer()).future;
+
+  bool _isCurrent(N native) => identical(native, _native);
 
   N get _io =>
       _native ??
@@ -67,7 +74,7 @@ sealed class EndpointIo<N extends RustOpaqueInterface>._(
 /// [write] queues data and returns once it is queued; [flush] waits until
 /// it is sent. For throughput, write chunks much larger than the max packet
 /// size, such as 16 KiB.
-final class InEndpoint._(super.template, super.queueLength)
+final class InEndpoint._(super._function, super.template, super.queueLength)
     extends EndpointIo<rust.EndpointSender> {
   /// Created by the function.
   this : super._();
@@ -96,13 +103,16 @@ final class InEndpoint._(super.template, super.queueLength)
 
   /// Writes [data]`()` every [interval] while [condition]`()` holds, such
   /// as HID reports while the function is enabled. Write errors (the host
-  /// not reading yet) skip that period.
+  /// not reading yet) skip that period. Stops once the gadget is removed.
+  ///
+  /// Start it in [CustomFunction.onEnable]; hooks aren't awaited, so it
+  /// doesn't hold up other events.
   Future<void> writeWhile({
     required bool Function() condition,
     required List<int> Function() data,
     required Duration interval,
   }) async {
-    while (condition()) {
+    while (!_function._closed && condition()) {
       final next = Future<void>.delayed(interval);
       try {
         await write(data(), timeout: interval);
@@ -132,7 +142,7 @@ final class InEndpoint._(super.template, super.queueLength)
 /// An OUT endpoint: the gadget reads data the host wrote.
 ///
 /// Use either [read] or one [stream] at a time.
-final class OutEndpoint._(super.template, super.queueLength)
+final class OutEndpoint._(super._function, super.template, super.queueLength)
     extends EndpointIo<rust.EndpointReceiver> {
   /// Created by the function.
   this : super._();
@@ -168,6 +178,7 @@ final class OutEndpoint._(super.template, super.queueLength)
           native.cancel();
         },
         next: (native) => native.receive(chunkSize, true, null),
+        isCurrent: _isCurrent,
       );
 
   @override

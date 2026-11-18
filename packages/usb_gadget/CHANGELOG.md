@@ -24,8 +24,13 @@ maintained configfs support. The API is new.
   `EndpointTemplate`s, endpoints are fetched with `endpointIn(.ep1)` /
   `endpointOut(.ep2)` as `InEndpoint`/`OutEndpoint`, and the `onBind` …
   `onSetup` hooks are overridden as before; `onSetup` receives a typed
-  `ControlRequest` to answer. `HIDFunctionFs` is now `HidFunctionFs`, with
-  the same hooks.
+  `ControlRequest` to answer. Lifecycle hooks are no longer awaited, so a
+  long `onEnable` doesn't hold up control requests; errors go to the new
+  `onError`. `HIDFunctionFs` is now `HidFunctionFs`, with the same hooks;
+  its `protocol` parameter is `interfaceProtocol`, and `bootProtocol`
+  reports the host's SET_PROTOCOL choice.
+- `Gadget.register()` and `bind()` throw `StateError` if the gadget is
+  already registered.
 - **BREAKING**: USB chapter 9 and HID types moved to the shared
   [`usb_models`](../usb_models) package (re-exported), with Effective Dart
   names: `USBDirection` → `Direction`, `USBRecipient` → `Recipient`,

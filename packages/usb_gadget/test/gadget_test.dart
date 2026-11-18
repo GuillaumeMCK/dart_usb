@@ -452,7 +452,81 @@ void main() async {
         [1, 2, 3, 4],
       );
     });
+
+    test('a long-running onEnable does not hold up control requests', () async {
+      final pad = _Pad();
+      final (gadget, device) = await _connect(udc!, [pad]);
+      await pad.awaitState(.enabled, timeout: const Duration(seconds: 5));
+      final interface = await device.claimInterface(0);
+      final reports = interface.endpointIn(
+        interface.descriptor!.endpoints.single.address.value,
+      );
+      expect(
+        await reports.transfer(length: 4, timeout: const Duration(seconds: 2)),
+        hasLength(4),
+      );
+
+      // onEnable is still sending; requests are answered meanwhile.
+      Future<List<int>> getProtocol() => interface.controlIn(
+        const ControlIn(
+          type: .class_,
+          recipient: .interface,
+          request: 0x03,
+          length: 1,
+        ),
+      );
+      expect(await getProtocol(), [1]);
+      await interface.controlOut(
+        const ControlOut(type: .class_, recipient: .interface, request: 0x0B),
+      );
+      expect(pad.bootProtocol, isTrue);
+      expect(await getProtocol(), [0]);
+      // An invalid report type stalls instead of throwing.
+      await expectLater(
+        interface.controlIn(
+          const ControlIn(
+            type: .class_,
+            recipient: .interface,
+            request: 0x01,
+            length: 4,
+          ),
+        ),
+        throwsA(anything),
+      );
+      expect(pad.errors, isEmpty);
+
+      await gadget.remove();
+      await pad.sending!.timeout(const Duration(seconds: 2));
+    });
   });
+}
+
+/// A HID function that sends reports from onEnable until disabled.
+final class _Pad() extends HidFunctionFs {
+  this
+    : super(
+        config: const .inputOnly(maxPacketSize: 4),
+        reportDescriptor: const [
+          0x06, 0x00, 0xFF, 0x09, 0x01, 0xA1, 0x01, 0x15, 0x00, 0x26, //
+          0xFF, 0x00, 0x75, 0x08, 0x95, 0x04, 0x09, 0x01, 0x81, 0x02, 0xC0,
+        ],
+      );
+
+  Future<void>? sending;
+  final errors = <Object>[];
+
+  @override
+  void onEnable() => sending = epIn.writeWhile(
+    condition: () => state == .enabled,
+    data: () => [1, 2, 3, 4],
+    interval: const Duration(milliseconds: 10),
+  );
+
+  @override
+  List<int> onGetReport(HidReportType type, int reportId) => [1, 2, 3, 4];
+
+  @override
+  void onError(Object error, StackTrace stack) => errors.add(error);
 }
 
 /// Sends [payload] out and reads the echo back.

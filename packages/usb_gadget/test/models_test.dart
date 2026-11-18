@@ -92,5 +92,18 @@ void main() {
     expect(hid.interfaces.single.endpoints, hasLength(2));
     expect(hid.interfaces.single.descriptors.single, isA<HidDescriptor>());
     expect(hid.epIn.number, EndpointNumber.ep1);
+    expect(hid.bootProtocol, isFalse);
+  });
+
+  test('HidFunctionFs keeps the interface protocol apart', () {
+    final mouse = HidFunctionFs(
+      config: const .inputOnly(),
+      reportDescriptor: const [0x05, 0x01, 0xC0],
+      subClass: 1,
+      interfaceProtocol: 2,
+    );
+    expect(mouse.interfaces.single.class_.protocol, 2);
+    expect(mouse.bootProtocol, isFalse);
+    expect(mouse.hidDescriptor.reportLength, 3);
   });
 }

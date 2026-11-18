@@ -107,7 +107,9 @@ final class const WebUsb({
 ///   strings: {.enUS: const GadgetStrings(manufacturer: 'ACME', product: 'Widget')},
 ///   configs: [Config(functions: [SerialFunction()])],
 /// );
-/// final registered = await gadget.bind(await defaultUdc());
+/// await gadget.bind();
+/// // ...
+/// await gadget.remove();
 /// ```
 final class Gadget({
   required this.id,
@@ -166,7 +168,13 @@ final class Gadget({
 
   /// Creates the gadget in configfs without binding it to a controller.
   /// Needs root (or `CAP_SYS_ADMIN`) and configfs mounted.
+  ///
+  /// Throws [StateError] if the gadget is already registered; [remove] it
+  /// first.
   Future<RegisteredGadget> register() async {
+    if (_registration != null) {
+      throw StateError('the gadget is already registered; remove() it first');
+    }
     await ensureInitialized();
     return _registration = RegisteredGadget._(
       await rust.registerGadget(spec: _spec()),
@@ -175,7 +183,8 @@ final class Gadget({
   }
 
   /// Registers the gadget and binds it to [udc] (by default the system's
-  /// only or first controller); the host then sees the device.
+  /// only or first controller); the host then sees the device. Throws
+  /// [StateError] if the gadget is already registered.
   ///
   /// ```dart
   /// await gadget.bind();
@@ -324,6 +333,11 @@ final class RegisteredGadget._(this._native, this.gadget) {
       g
         .._registration = null
         .._udc = null;
+      for (final config in g.configs) {
+        for (final function in config.functions) {
+          function.didRemove();
+        }
+      }
     }
   }
 

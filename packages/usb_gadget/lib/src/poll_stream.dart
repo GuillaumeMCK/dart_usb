@@ -11,12 +11,15 @@ import 'package:usb_gadget/src/rust/api/error.dart';
 ///   the native side (and on the host) instead of buffering in Dart.
 /// - Ends without an error when the native side reports
 ///   [GadgetErrorKind.disconnected]: the function was disabled or removed.
+/// - Ends without an error once [isCurrent] returns false: the native
+///   object was replaced by a new registration.
 /// - [stop] runs once when the listener cancels or the stream ends.
 Stream<T> pollStream<N, T extends Object>({
   required Future<N> native,
   required Future<T?> Function(N native) next,
   void Function(N native)? start,
   void Function(N native)? stop,
+  bool Function(N native)? isCurrent,
 }) {
   late final StreamController<T> controller;
   var active = false;
@@ -52,7 +55,7 @@ Stream<T> pollStream<N, T extends Object>({
       return;
     }
     attached = n;
-    while (active) {
+    while (active && (isCurrent?.call(n) ?? true)) {
       if (controller.isPaused) {
         await (resumed ??= Completer()).future;
         continue;
@@ -64,6 +67,9 @@ Stream<T> pollStream<N, T extends Object>({
         if (active && e.kind != GadgetErrorKind.disconnected) {
           controller.addError(e, s);
         }
+        break;
+      } catch (e, s) {
+        if (active && (isCurrent?.call(n) ?? true)) controller.addError(e, s);
         break;
       }
     }

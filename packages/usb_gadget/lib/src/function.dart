@@ -22,6 +22,12 @@ abstract class GadgetFunction() {
   /// configuration.
   @internal
   FunctionHandle createHandle();
+
+  /// Called once the gadget holding this function is removed, to release
+  /// what the registration opened.
+  @internal
+  @mustCallSuper
+  void didRemove() {}
 }
 
 /// The bridge representation of [c]. Internal to usb_gadget.
@@ -125,9 +131,20 @@ class HidFunction({
   @internal
   FunctionHandle createHandle() {
     // A new registration has a new device file.
+    _closeFile();
+    return super.createHandle();
+  }
+
+  @override
+  @internal
+  void didRemove() {
+    super.didRemove();
+    _closeFile();
+  }
+
+  void _closeFile() {
     _file?.closeSync();
     _file = null;
-    return super.createHandle();
   }
 }
 
