@@ -324,6 +324,20 @@ class InterfaceDescriptor implements Descriptor {
     this.stringIndex = StringIndex.none,
   });
 
+  /// Parses a 9-byte interface descriptor, such as one read from a device.
+  ///
+  /// Throws [FormatException] if [bytes] is not an interface descriptor.
+  factory InterfaceDescriptor.parse(List<int> bytes) {
+    _checkDescriptor(bytes, DescriptorType.interface, 9, 'interface');
+    return InterfaceDescriptor(
+      interfaceNumber: InterfaceNumber(bytes[2]),
+      alternateSetting: AlternateSetting(bytes[3]),
+      numEndpoints: EndpointCount(bytes[4].clamp(0, 30)),
+      class_: Class.raw(bytes[5], bytes[6], bytes[7]),
+      stringIndex: StringIndex(bytes[8]),
+    );
+  }
+
   @override
   int get bLength => 9;
 
@@ -398,6 +412,34 @@ class EndpointDescriptor implements Descriptor {
     this.bRefresh = 0,
     this.bSynchAddress = 0,
   });
+
+  /// Parses a 7-byte endpoint descriptor (9 bytes for USB Audio Class
+  /// endpoints), such as one read from a device.
+  ///
+  /// Throws [FormatException] if [bytes] is not an endpoint descriptor.
+  factory EndpointDescriptor.parse(List<int> bytes) {
+    _checkDescriptor(bytes, DescriptorType.endpoint, 7, 'endpoint');
+    final audio = bytes[0] >= 9 && bytes.length >= 9;
+    return EndpointDescriptor(
+      address: EndpointAddress.fromByte(bytes[2]),
+      attributes: EndpointAttributes.fromByte(bytes[3]),
+      maxPacketSize: MaxPacketSize.fromValue(bytes[4] | (bytes[5] << 8)),
+      interval: PollingInterval.raw(bytes[6]),
+      bRefresh: audio ? bytes[7] : 0,
+      bSynchAddress: audio ? bytes[8] : 0,
+    );
+  }
+
+  /// The transfer type, from [attributes].
+  TransferType get transferType => attributes.transferType;
+
+  /// The direction, from [address].
+  Direction get direction => address.direction;
+
+  @override
+  String toString() =>
+      'EndpointDescriptor(0x${address.value.toRadixString(16).padLeft(2, '0')} '
+      '${attributes.transferType.name} ${address.direction.name}, ${maxPacketSize.size} bytes)';
 
   /// Endpoint address (includes direction and number).
   final EndpointAddress address;
@@ -873,5 +915,20 @@ class EndpointTemplate implements Descriptor {
       'EndpointTemplate must be converted to speed-specific descriptor '
       'using DescriptorGenerator.generateForSpeed()',
     );
+  }
+}
+
+/// Throws a [FormatException] unless [bytes] starts with a descriptor of
+/// [type] that is at least [minLength] long.
+void _checkDescriptor(
+  List<int> bytes,
+  DescriptorType type,
+  int minLength,
+  String name,
+) {
+  if (bytes.length < minLength ||
+      bytes[0] < minLength ||
+      bytes[1] != type.value) {
+    throw FormatException('not a valid $name descriptor', bytes);
   }
 }

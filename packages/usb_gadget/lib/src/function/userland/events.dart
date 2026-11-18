@@ -165,6 +165,17 @@ class SetupEvent implements FunctionFsEvent {
   /// Gets the standard request type if this is a standard request.
   StandardRequest get standardRequest => .fromByte(bRequest);
 
+  /// The request as a [SetupPacket], the model shared with `dusb`.
+  SetupPacket get packet => SetupPacket(
+    direction: direction,
+    type: requestType,
+    recipient: recipient,
+    request: bRequest,
+    value: wValue,
+    index: wIndex,
+    length: wLength,
+  );
+
   @override
   String toString() =>
       'SetupEvent(type: ${bmRequestType.toHex()}, '

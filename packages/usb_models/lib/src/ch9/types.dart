@@ -69,10 +69,8 @@ class EndpointAddress {
   /// Parses an endpoint address from a bEndpointAddress byte.
   ///
   /// Extracts the endpoint number (bits 0-3) and direction (bit 7).
-  factory EndpointAddress.fromByte(int byte) => EndpointAddress(
-    EndpointNumber.fromByte(byte),
-    Direction.fromByte(byte),
-  );
+  factory EndpointAddress.fromByte(int byte) =>
+      EndpointAddress(EndpointNumber.fromByte(byte), Direction.fromByte(byte));
 
   /// The endpoint number (0-15).
   final EndpointNumber number;
@@ -276,6 +274,11 @@ class EndpointAttributes {
   const EndpointAttributes.interrupt()
     : transferType = .interrupt,
       _extraBits = 0;
+
+  /// Parses a `bmAttributes` byte.
+  EndpointAttributes.fromByte(int value)
+    : transferType = TransferType.values[value & 0x03],
+      _extraBits = value & 0x3C;
 
   /// Creates attributes from a transfer type and optional isochronous parameters.
   factory EndpointAttributes.from(
@@ -500,6 +503,12 @@ final class MaxPacketSize {
         'SuperSpeed must be 512 or 1024 bytes',
       ),
       _extraBits = 0;
+
+  /// Parses a `wMaxPacketSize` field, keeping the high-bandwidth
+  /// transactions-per-microframe bits (11-12).
+  const MaxPacketSize.fromValue(int value)
+    : size = value & 0x7FF,
+      _extraBits = value & 0x1800;
 
   /// Raw packet size without validation.
   ///
@@ -738,7 +747,8 @@ final class SuperSpeedEndpointAttributes {
   int get hashCode => value.hashCode;
 
   @override
-  String toString() => 'SuperSpeedEndpointAttributes(0x${value.toRadixString(16)})';
+  String toString() =>
+      'SuperSpeedEndpointAttributes(0x${value.toRadixString(16)})';
 }
 
 /// Type-safe bytes per interval (0-65535).
@@ -818,6 +828,17 @@ final class Id {
 
   /// USB Product ID (PID).
   final int product;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Id && other.vendor == vendor && other.product == product;
+
+  @override
+  int get hashCode => Object.hash(vendor, product);
+
+  @override
+  String toString() =>
+      '${vendor.toRadixString(16).padLeft(4, '0')}:${product.toRadixString(16).padLeft(4, '0')}';
 }
 
 /// USB device or interface class code, grouping class, subclass, and protocol.
@@ -830,8 +851,18 @@ final class Id {
 /// final cls = Class.vendorSpecific(0x00, 0x00);
 /// ```
 final class Class {
-  const Class(this._code, this.subClass, this.protocol)
-    : assert(subClass >= 0 && subClass <= 0xFF),
+  const Class(ClassType this._type, this.subClass, this.protocol)
+    : _rawCode = 0,
+      assert(subClass >= 0 && subClass <= 0xFF),
+      assert(protocol >= 0 && protocol <= 0xFF);
+
+  /// A class from its raw code, such as one read from a device, which may
+  /// not be a [ClassType] this library names.
+  const Class.raw(int code, this.subClass, this.protocol)
+    : _type = null,
+      _rawCode = code,
+      assert(code >= 0 && code <= 0xFF),
+      assert(subClass >= 0 && subClass <= 0xFF),
       assert(protocol >= 0 && protocol <= 0xFF);
 
   /// Defers class information to each interface descriptor.
@@ -843,16 +874,37 @@ final class Class {
   const Class.vendorSpecific(int subClass, int protocol)
     : this(.vendorSpecific, subClass, protocol);
 
-  /// USB class code.
-  final ClassType _code;
+  final ClassType? _type;
+  final int _rawCode;
 
-  int get code => _code.value;
+  /// USB class code.
+  int get code => _type?.value ?? _rawCode;
+
+  /// The known class for [code], or `null` if it isn't one this library
+  /// names.
+  ClassType? get type => _type ?? ClassType.fromValue(code);
 
   /// USB subclass code.
   final int subClass;
 
   /// USB protocol code.
   final int protocol;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Class &&
+      other.code == code &&
+      other.subClass == subClass &&
+      other.protocol == protocol;
+
+  @override
+  int get hashCode => Object.hash(code, subClass, protocol);
+
+  @override
+  String toString() {
+    String h(int v) => '0x${v.toRadixString(16).padLeft(2, '0')}';
+    return 'Class(${type?.name ?? h(code)}, subclass ${h(subClass)}, protocol ${h(protocol)})';
+  }
 }
 
 /// Handles USB bMaxPower values for gadget configurations.
@@ -1134,6 +1186,14 @@ enum ClassType {
 
   /// Raw class code value.
   final int value;
+
+  /// The class with code [value], or `null` if it isn't one listed here.
+  static ClassType? fromValue(int value) {
+    for (final c in values) {
+      if (c.value == value) return c;
+    }
+    return null;
+  }
 }
 
 /// USB descriptor types.
