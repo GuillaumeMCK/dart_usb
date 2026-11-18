@@ -1,0 +1,1357 @@
+import '/usb_gadget.dart';
+
+/// Endpoint number (0-15).
+///
+/// USB devices can have up to 16 endpoint numbers (0-15). Each endpoint
+/// number can have both an IN and OUT endpoint, making up to 32 total
+/// endpoints per device (though endpoint 0 is bidirectional control only).
+class EndpointNumber {
+  const EndpointNumber(this.value)
+    : assert(value >= 0 && value <= 15, 'Endpoint number must be 0-15');
+
+  /// Extracts endpoint number from a bEndpointAddress byte.
+  ///
+  /// Uses mask 0x0F to extract bits 0-3.
+  factory EndpointNumber.fromByte(int byte) => EndpointNumber(byte & 0x0F);
+
+  /// The raw endpoint number value (0-15).
+  final int value;
+
+  /// Common endpoint numbers.
+  static const EndpointNumber ep0 = .new(0);
+  static const EndpointNumber ep1 = .new(1);
+  static const EndpointNumber ep2 = .new(2);
+  static const EndpointNumber ep3 = .new(3);
+  static const EndpointNumber ep4 = .new(4);
+  static const EndpointNumber ep5 = .new(5);
+  static const EndpointNumber ep6 = .new(6);
+  static const EndpointNumber ep7 = .new(7);
+  static const EndpointNumber ep8 = .new(8);
+  static const EndpointNumber ep9 = .new(9);
+  static const EndpointNumber ep10 = .new(10);
+  static const EndpointNumber ep11 = .new(11);
+  static const EndpointNumber ep12 = .new(12);
+  static const EndpointNumber ep13 = .new(13);
+  static const EndpointNumber ep14 = .new(14);
+  static const EndpointNumber ep15 = .new(15);
+
+  @override
+  bool operator ==(Object other) =>
+      other is EndpointNumber && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'EP$value';
+}
+
+/// Endpoint address combining number and direction.
+///
+/// USB endpoint addresses encode both the endpoint number (0-15) and the
+/// transfer direction (IN or OUT) in a single byte:
+/// - Bits 0-3: Endpoint number
+/// - Bit 7: Direction (0 = OUT, 1 = IN)
+/// - Bits 4-6: Reserved, must be 0
+class EndpointAddress {
+  const EndpointAddress(this.number, this.direction);
+
+  /// Creates an IN (device-to-host) endpoint address.
+  ///
+  /// IN endpoints send data from the device to the host.
+  const EndpointAddress.in_(this.number) : direction = .in_;
+
+  /// Creates an OUT (host-to-device) endpoint address.
+  ///
+  /// OUT endpoints receive data from the host to the device.
+  const EndpointAddress.out(this.number) : direction = .out;
+
+  /// Parses an endpoint address from a bEndpointAddress byte.
+  ///
+  /// Extracts the endpoint number (bits 0-3) and direction (bit 7).
+  factory EndpointAddress.fromByte(int byte) => EndpointAddress(
+    EndpointNumber.fromByte(byte),
+    USBDirection.fromByte(byte),
+  );
+
+  /// The endpoint number (0-15).
+  final EndpointNumber number;
+
+  /// The transfer direction (IN or OUT).
+  final USBDirection direction;
+
+  /// Converts to a bEndpointAddress byte value.
+  ///
+  /// Returns a byte with direction in bit 7 and endpoint number in bits 0-3.
+  int get value => direction.value | number.value;
+
+  /// True if this is an IN (device-to-host) endpoint.
+  bool get isIn => direction.isIn;
+
+  /// True if this is an OUT (host-to-device) endpoint.
+  bool get isOut => direction.isOut;
+
+  @override
+  bool operator ==(Object other) =>
+      other is EndpointAddress &&
+      other.number == number &&
+      other.direction == direction;
+
+  @override
+  int get hashCode => Object.hash(number, direction);
+
+  @override
+  String toString() => 'EP${number.value} ${direction.isIn ? 'IN' : 'OUT'}';
+}
+
+/// Type-safe interface number (0-255).
+///
+/// USB configurations can have multiple interfaces, each identified by
+/// a unique number. Interface numbers are assigned sequentially starting
+/// from 0 within each configuration.
+class InterfaceNumber {
+  const InterfaceNumber(this.value)
+    : assert(value >= 0 && value <= 255, 'Interface number must be 0-255');
+
+  /// The interface number (0-255).
+  final int value;
+
+  static const InterfaceNumber interface0 = .new(0);
+  static const InterfaceNumber interface1 = .new(1);
+  static const InterfaceNumber interface2 = .new(2);
+  static const InterfaceNumber interface3 = .new(3);
+
+  @override
+  bool operator ==(Object other) =>
+      other is InterfaceNumber && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'Interface $value';
+}
+
+/// Type-safe alternate setting number (0-255).
+///
+/// Interfaces can have multiple alternate settings that provide different
+/// configurations of endpoints or bandwidth allocations. Alternate setting
+/// 0 is the default and must always be supported.
+///
+/// Alternate settings allow dynamic reconfiguration without changing the
+/// entire device configuration. For example, a webcam might have:
+/// - Alt 0: No streaming (no endpoints)
+/// - Alt 1: Low resolution streaming (smaller bandwidth)
+/// - Alt 2: High resolution streaming (larger bandwidth)
+class AlternateSetting {
+  const AlternateSetting(this.value)
+    : assert(value >= 0 && value <= 255, 'Alternate setting must be 0-255');
+
+  /// The alternate setting number (0-255).
+  final int value;
+
+  /// Default alternate setting (always 0).
+  static const AlternateSetting default_ = .new(0);
+  static const AlternateSetting alt1 = .new(1);
+  static const AlternateSetting alt2 = .new(2);
+
+  @override
+  bool operator ==(Object other) =>
+      other is AlternateSetting && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'Alt $value';
+}
+
+/// Type-safe endpoint count (0-30).
+///
+/// Specifies the number of endpoints used by an interface, excluding
+/// the default control endpoint (endpoint 0). An interface can declare
+/// up to 30 additional endpoints (15 IN + 15 OUT).
+class EndpointCount {
+  const EndpointCount(this.value)
+    : assert(
+        value >= 0 && value <= 30,
+        'Endpoint count must be 0-30 (excluding EP0)',
+      );
+
+  /// Number of endpoints (0-30, excluding endpoint 0).
+  final int value;
+
+  static const EndpointCount none = .new(0);
+  static const EndpointCount one = .new(1);
+  static const EndpointCount two = .new(2);
+
+  @override
+  bool operator ==(Object other) =>
+      other is EndpointCount && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => '$value endpoint${value == 1 ? '' : 's'}';
+}
+
+/// Type-safe string descriptor index (0-255).
+///
+/// References a string descriptor containing human-readable text.
+/// Index 0 means no string descriptor is provided. Common uses:
+/// - Index 1: Manufacturer string
+/// - Index 2: Product string
+/// - Index 3: Serial number string
+///
+/// String descriptors can be localized to different languages using
+/// the language ID in GET_DESCRIPTOR requests.
+class StringIndex {
+  const StringIndex(this.value)
+    : assert(value >= 0 && value <= 255, 'String index must be 0-255');
+
+  /// The string descriptor index (0-255).
+  final int value;
+
+  /// No string descriptor (index 0).
+  static const StringIndex none = .new(0);
+
+  /// Common string descriptor indices.
+  static const StringIndex manufacturer = .new(1);
+  static const StringIndex product = .new(2);
+  static const StringIndex serialNumber = .new(3);
+
+  /// True if this index references a string descriptor.
+  bool get hasString => value != 0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is StringIndex && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => hasString ? 'String $value' : 'No string';
+}
+
+/// Endpoint attributes (bmAttributes field).
+///
+/// The bmAttributes field describes the endpoint's transfer type and
+/// additional characteristics:
+/// - Bits 0-1: Transfer type (control/isochronous/bulk/interrupt)
+/// - Bits 2-7: Additional attributes depending on transfer type
+///
+/// For isochronous endpoints:
+/// - Bits 2-3: Synchronization type
+/// - Bits 4-5: Usage type
+class EndpointAttributes {
+  /// Control transfer endpoint.
+  ///
+  /// Structured transfers for device configuration. All devices have a
+  /// control endpoint at address 0. Provides reliable delivery with
+  /// error checking and retry.
+  const EndpointAttributes.control() : transferType = .control, _extraBits = 0;
+
+  /// Isochronous transfer endpoint.
+  ///
+  /// Time-critical transfers with guaranteed bandwidth but no error correction.
+  /// Used for audio/video streaming. Requires synchronization and usage type.
+  EndpointAttributes.isochronous({
+    required IsoSyncType syncType,
+    required IsoUsageType usageType,
+  }) : transferType = .isochronous,
+       _extraBits = syncType.value | usageType.value;
+
+  /// Bulk transfer endpoint.
+  ///
+  /// Large, reliable transfers with error correction but no guaranteed timing.
+  /// Used for mass storage, file transfers, printers.
+  const EndpointAttributes.bulk() : transferType = .bulk, _extraBits = 0;
+
+  /// Interrupt transfer endpoint.
+  ///
+  /// Small, periodic transfers with bounded latency. Used for keyboards,
+  /// mice, HID devices. Guaranteed maximum latency but limited data rate.
+  const EndpointAttributes.interrupt()
+    : transferType = .interrupt,
+      _extraBits = 0;
+
+  /// Creates attributes from a transfer type and optional isochronous parameters.
+  factory EndpointAttributes.from(
+    TransferType type, {
+    IsoSyncType? syncType,
+    IsoUsageType? usageType,
+  }) {
+    return switch (type) {
+      .control => const .control(),
+      .isochronous => .isochronous(
+        syncType: syncType ?? .noSync,
+        usageType: usageType ?? .data,
+      ),
+      .bulk => const .bulk(),
+      .interrupt => const .interrupt(),
+    };
+  }
+
+  /// The transfer type of this endpoint.
+  final TransferType transferType;
+  final int _extraBits;
+
+  /// Final bmAttributes byte value.
+  int get value => transferType.value | _extraBits;
+
+  /// Synchronization type for isochronous endpoints.
+  ///
+  /// Returns null for non-isochronous endpoints.
+  IsoSyncType? get syncType =>
+      transferType == .isochronous ? .fromByte(value) : null;
+
+  /// Usage type for isochronous endpoints.
+  ///
+  /// Returns null for non-isochronous endpoints.
+  IsoUsageType? get usageType =>
+      transferType == .isochronous ? .fromByte(value) : null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is EndpointAttributes && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'EndpointAttributes(${transferType.name})';
+}
+
+/// Isochronous synchronization type (bits 2-3 of bmAttributes).
+///
+/// Describes how isochronous data is synchronized (USB 2.0 spec Table 9-13):
+/// - No synchronization: No sync source (bits 2–3 = 00)
+/// - Asynchronous: Source has no locked timing (bits 2–3 = 01)
+/// - Adaptive: Sink can adapt to rate feedback (bits 2–3 = 10)
+/// - Synchronous: Source/sink locked to USB SOF (bits 2–3 = 11)
+enum IsoSyncType {
+  /// No synchronization.
+  ///
+  /// The endpoint has no synchronization source. Distinct from [async],
+  /// which has its own free-running clock. Encoded as bits 2–3 = 00.
+  noSync(0x00),
+
+  /// Asynchronous synchronization.
+  ///
+  /// The endpoint has no inherent timing requirements.
+  async(0x04),
+
+  /// Adaptive synchronization.
+  ///
+  /// The endpoint can adapt to rate feedback.
+  adaptive(0x08),
+
+  /// Synchronous synchronization.
+  ///
+  /// The endpoint has fixed timing requirements.
+  sync(0x0C);
+
+  const IsoSyncType(this.value);
+
+  /// Raw value for bits 2-3 of bmAttributes.
+  final int value;
+
+  /// Extracts synchronization type from bmAttributes byte.
+  static IsoSyncType fromByte(int byte) {
+    final masked = byte & 0x0C;
+    return IsoSyncType.values.firstWhere(
+      (t) => t.value == masked,
+      orElse: () => noSync,
+    );
+  }
+}
+
+/// Isochronous usage type (bits 4-5 of bmAttributes).
+///
+/// Describes how isochronous endpoint data is used:
+/// - Data endpoint: Normal data transfer
+/// - Feedback endpoint: Provides rate feedback
+/// - Implicit feedback: Data endpoint with implicit feedback
+enum IsoUsageType {
+  /// Data endpoint.
+  ///
+  /// Standard isochronous data transfer.
+  data(0x00),
+
+  /// Feedback endpoint.
+  ///
+  /// Provides rate feedback for adaptive synchronization.
+  feedback(0x10),
+
+  /// Implicit feedback data endpoint.
+  ///
+  /// Data endpoint that also provides implicit rate feedback.
+  implicit(0x20);
+
+  const IsoUsageType(this.value);
+
+  /// Raw value for bits 4-5 of bmAttributes.
+  final int value;
+
+  /// Extracts usage type from bmAttributes byte.
+  static IsoUsageType fromByte(int byte) {
+    final masked = byte & 0x30;
+    return IsoUsageType.values.firstWhere(
+      (t) => t.value == masked,
+      orElse: () => data,
+    );
+  }
+}
+
+/// Type-safe maximum packet size with speed-specific validation.
+///
+/// USB endpoints have maximum packet size limits that vary by:
+/// - USB speed (Full-Speed, High-Speed, SuperSpeed)
+/// - Transfer type (Control, Bulk, Interrupt, Isochronous)
+///
+/// These constructors enforce USB specification limits at construction time.
+///
+/// Full-Speed limits (USB 1.1, 12 Mbps):
+/// - Control: 8, 16, 32, or 64 bytes
+/// - Bulk: 8, 16, 32, or 64 bytes
+/// - Interrupt: 0-64 bytes
+/// - Isochronous: 0-1023 bytes
+///
+/// High-Speed limits (USB 2.0, 480 Mbps):
+/// - Control: 64 bytes
+/// - Bulk: 512 bytes
+/// - Interrupt: 0-1024 bytes
+/// - Isochronous: 0-1024 bytes (with transactions per microframe)
+///
+/// SuperSpeed limits (USB 3.0+, 5+ Gbps):
+/// - All: 512 or 1024 bytes
+final class MaxPacketSize {
+  /// Full-speed control endpoint (8, 16, 32, or 64 bytes).
+  const MaxPacketSize.fullSpeedControl(this.size)
+    : assert(
+        size == 8 || size == 16 || size == 32 || size == 64,
+        'Full-speed control must be 8, 16, 32, or 64 bytes',
+      ),
+      _extraBits = 0;
+
+  /// Full-speed bulk endpoint (8, 16, 32, or 64 bytes).
+  const MaxPacketSize.fullSpeedBulk(this.size)
+    : assert(
+        size == 8 || size == 16 || size == 32 || size == 64,
+        'Full-speed bulk must be 8, 16, 32, or 64 bytes',
+      ),
+      _extraBits = 0;
+
+  /// Full-speed interrupt endpoint (0-64 bytes).
+  const MaxPacketSize.fullSpeedInterrupt(this.size)
+    : assert(
+        size >= 0 && size <= 64,
+        'Full-speed interrupt must be 0-64 bytes',
+      ),
+      _extraBits = 0;
+
+  /// Full-speed isochronous endpoint (0-1023 bytes).
+  const MaxPacketSize.fullSpeedIsochronous(this.size)
+    : assert(
+        size >= 0 && size <= 1023,
+        'Full-speed isochronous must be 0-1023 bytes',
+      ),
+      _extraBits = 0;
+
+  /// High-speed control endpoint (always 64 bytes).
+  const MaxPacketSize.highSpeedControl() : size = 64, _extraBits = 0;
+
+  /// High-speed bulk endpoint (always 512 bytes).
+  const MaxPacketSize.highSpeedBulk() : size = 512, _extraBits = 0;
+
+  /// High-speed interrupt endpoint (0-1024 bytes).
+  const MaxPacketSize.highSpeedInterrupt(this.size)
+    : assert(
+        size >= 0 && size <= 1024,
+        'High-speed interrupt must be 0-1024 bytes',
+      ),
+      _extraBits = 0;
+
+  /// High-speed isochronous endpoint (0-1024 bytes).
+  ///
+  /// [transactionsPerMicroframe] specifies additional transactions per
+  /// microframe (1-3). The actual value is encoded as (value - 1) in bits 11-12.
+  /// This allows high-bandwidth isochronous endpoints to transfer multiple
+  /// packets per 125μs microframe.
+  const MaxPacketSize.highSpeedIsochronous({
+    required this.size,
+    required int transactionsPerMicroframe,
+  }) : assert(
+         size >= 0 && size <= 1024,
+         'High-speed isochronous must be 0-1024 bytes',
+       ),
+       assert(
+         transactionsPerMicroframe >= 1 && transactionsPerMicroframe <= 3,
+         'Transactions per microframe must be 1-3',
+       ),
+       _extraBits = (transactionsPerMicroframe - 1) << 11;
+
+  /// SuperSpeed endpoint (512 or 1024 bytes).
+  const MaxPacketSize.superSpeed(this.size)
+    : assert(
+        size == 512 || size == 1024,
+        'SuperSpeed must be 512 or 1024 bytes',
+      ),
+      _extraBits = 0;
+
+  /// Raw packet size without validation.
+  ///
+  /// Use this for custom or non-standard packet sizes.
+  const MaxPacketSize.raw(this.size)
+    : assert(size >= 0 && size <= 0xFFFF, 'Size must fit in 16 bits'),
+      _extraBits = 0;
+
+  /// From USB Speed and Transfer Type, determine the default max packet size.
+  factory MaxPacketSize.from(Speed speed, TransferType type) {
+    return switch ((speed, type)) {
+      (.fullSpeed, .control) => const .fullSpeedControl(64),
+      (.fullSpeed, .bulk) => const .fullSpeedBulk(64),
+      (.fullSpeed, .interrupt) => const .fullSpeedInterrupt(64),
+      (.fullSpeed, .isochronous) => const .fullSpeedIsochronous(1023),
+      (.highSpeed, .control) => const .highSpeedControl(),
+      (.highSpeed, .bulk) => const .highSpeedBulk(),
+      (.highSpeed, .interrupt) => const .highSpeedInterrupt(1024),
+      (.highSpeed, .isochronous) => const .highSpeedIsochronous(
+        size: 1024,
+        // Default to 1 transaction/microframe; high-bandwidth modes (2–3)
+        // must be requested explicitly.
+        transactionsPerMicroframe: 1,
+      ),
+      // SuperSpeed (USB 3.x): control and bulk are fixed at 512 per spec;
+      // interrupt and isochronous may use 1024.
+      (.superSpeed || .superSpeedPlus, .control) => const .superSpeed(512),
+      (.superSpeed || .superSpeedPlus, .bulk) => const .superSpeed(512),
+      (.superSpeed || .superSpeedPlus, _) => const .superSpeed(1024),
+      _ => throw ArgumentError('Unsupported speed/transfer type combination'),
+    };
+  }
+
+  /// The packet size in bytes.
+  final int size;
+  final int _extraBits;
+
+  /// Final wMaxPacketSize field value.
+  int get value => size | _extraBits;
+
+  /// Number of additional transactions per microframe for high-speed isochronous.
+  ///
+  /// Returns null for non-high-speed-isochronous endpoints.
+  /// Value is decoded from bits 11-12: actual = (bits + 1).
+  int? get transactionsPerMicroframe =>
+      _extraBits != 0 ? ((_extraBits >> 11) & 0x03) + 1 : null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MaxPacketSize && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'MaxPacketSize($size bytes)';
+}
+
+/// Type-safe polling interval (bInterval field).
+///
+/// The bInterval field specifies how often an endpoint is polled for data.
+/// Interpretation varies by transfer type and USB speed:
+///
+/// Full-Speed:
+/// - Control/Bulk: Ignored (set to 0)
+/// - Interrupt: 1–255 frames (1 frame = 1 ms)
+/// - Isochronous: Must equal 1 (= 1 ms per frame, per USB spec §9.6.6)
+///
+/// High-Speed:
+/// - Control/Bulk: Ignored (set to 0)
+/// - Interrupt: 1–16 (actual interval = 2^(value-1) microframes × 125μs)
+/// - Isochronous: Must equal 1 (= 2^0 = 1 microframe = 125μs)
+///
+/// SuperSpeed:
+/// - Bulk/Control: Ignored (set to 0)
+/// - Interrupt/Isochronous: 1–16 (actual interval = 2^(value-1) × 125μs)
+final class PollingInterval {
+  /// No polling (for control/bulk endpoints).
+  const PollingInterval.none() : value = 0;
+
+  /// Full-speed interrupt/isochronous interval (1-255 frames).
+  ///
+  /// Each frame is 1 millisecond, so valid intervals are 1-255 ms.
+  const PollingInterval.fullSpeed(int frames)
+    : assert(
+        frames >= 1 && frames <= 255,
+        'Full-speed interval must be 1-255 frames',
+      ),
+      value = frames;
+
+  /// High-speed interrupt interval (1-16).
+  ///
+  /// The actual interval is 2^(exponent-1) microframes (125μs units).
+  /// For example, exponent=4 gives 2^3 = 8 microframes = 1 ms.
+  const PollingInterval.highSpeedInterrupt(int exponent)
+    : assert(
+        exponent >= 1 && exponent <= 16,
+        'High-speed interrupt interval must be 1-16',
+      ),
+      value = exponent;
+
+  /// High-speed isochronous interval (bInterval = 1).
+  ///
+  /// USB 2.0 spec §9.6.6 requires bInterval = 1 for high-speed isochronous
+  /// endpoints. This encodes an interval of 2^(1-1) = 1 microframe = 125μs.
+  const PollingInterval.highSpeedIsochronous() : value = 1;
+
+  /// SuperSpeed interval (1-16).
+  ///
+  /// The actual interval is 2^(exponent-1) × 125μs.
+  const PollingInterval.superSpeed(int exponent)
+    : assert(
+        exponent >= 1 && exponent <= 16,
+        'SuperSpeed interval must be 1-16',
+      ),
+      value = exponent;
+
+  /// Raw interval value without validation.
+  const PollingInterval.raw(this.value)
+    : assert(value >= 0 && value <= 255, 'Interval must be 0-255');
+
+  /// From USB Speed and Transfer Type, determine the default polling interval.
+  factory PollingInterval.from(Speed speed, TransferType type) =>
+      switch ((speed, type)) {
+        (.fullSpeed, .control) => const .none(),
+        (.fullSpeed, .bulk) => const .none(),
+        (.fullSpeed, .interrupt) => const .fullSpeed(10),
+        (.fullSpeed, .isochronous) => const .fullSpeed(1),
+        (.highSpeed, .control) => const .none(),
+        (.highSpeed, .bulk) => const .none(),
+        (.highSpeed, .interrupt) => const .highSpeedInterrupt(4),
+        (.highSpeed, .isochronous) => const .highSpeedIsochronous(),
+        // superSpeedPlus uses the same bInterval encoding as superSpeed.
+        (.superSpeed || .superSpeedPlus, .control) => const .none(),
+        (.superSpeed || .superSpeedPlus, .bulk) => const .none(),
+        (.superSpeed || .superSpeedPlus, _) => const .superSpeed(4),
+        _ => throw ArgumentError('Unsupported speed/transfer type combination'),
+      };
+
+  /// Final bInterval field value.
+  final int value;
+
+  /// Actual interval in microframes for high-speed/SuperSpeed.
+  ///
+  /// Returns null if this is not a high-speed/SuperSpeed interval.
+  /// Calculated as 2^(value-1) for values 1-16.
+  int? get microframes => value > 0 && value <= 16 ? 1 << (value - 1) : null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PollingInterval && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'PollingInterval($value)';
+}
+
+/// Type-safe SuperSpeed burst size (0-15).
+///
+/// Specifies the maximum number of packets the endpoint can send or receive
+/// as part of a burst in SuperSpeed mode. The actual number of packets is
+/// (value + 1), so:
+/// - 0 = 1 packet per burst
+/// - 15 = 16 packets per burst
+///
+/// Bursts allow more efficient use of SuperSpeed links by sending multiple
+/// packets back-to-back without waiting for individual acknowledgments.
+final class BurstSize {
+  const BurstSize(this.value)
+    : assert(value >= 0 && value <= 15, 'Burst size must be 0-15');
+
+  /// Raw burst size value (0-15).
+  final int value;
+
+  /// Single packet per burst (value = 0).
+  static const BurstSize single = .new(0);
+
+  /// Maximum burst size (16 packets, value = 15).
+  static const BurstSize max = .new(15);
+
+  /// Actual number of packets per burst.
+  ///
+  /// Calculated as (value + 1).
+  int get packets => value + 1;
+
+  @override
+  bool operator ==(Object other) => other is BurstSize && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => '$packets packet${packets == 1 ? '' : 's'}';
+}
+
+/// Type-safe SuperSpeed endpoint companion attributes.
+///
+/// The SuperSpeed endpoint companion descriptor includes an attributes
+/// field whose interpretation depends on the endpoint transfer type:
+///
+/// - Bulk endpoints: Bits 0-4 specify max streams (0-31)
+/// - Isochronous endpoints: Bits 0-1 specify mult (0-2)
+/// - Interrupt/Control endpoints: Reserved, must be 0
+final class SSEndpointAttributes {
+  /// Bulk endpoint attributes.
+  ///
+  /// [streams] specifies the maximum number of bulk streams supported.
+  /// Value 0-31 represents the maximum stream ID (2^streams supported).
+  const SSEndpointAttributes.bulk({int streams = 0})
+    : assert(streams >= 0 && streams <= 31, 'Streams must be 0-31'),
+      value = streams;
+
+  /// Isochronous endpoint attributes.
+  ///
+  /// [mult] specifies packets per service interval (0-2).
+  /// Actual packets = mult + 1.
+  const SSEndpointAttributes.isochronous({required int mult})
+    : assert(mult >= 0 && mult <= 2, 'Mult must be 0-2'),
+      value = mult;
+
+  /// Interrupt endpoint attributes.
+  ///
+  /// No additional attributes for interrupt endpoints.
+  const SSEndpointAttributes.interrupt() : value = 0;
+
+  /// The final bmAttributes field value.
+  final int value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SSEndpointAttributes && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'SSEndpointAttributes(0x${value.toRadixString(16)})';
+}
+
+/// Type-safe bytes per interval (0-65535).
+///
+/// Specifies the total number of bytes this endpoint will transfer per
+/// service interval. Used in SuperSpeed endpoint companion descriptors
+/// for isochronous and interrupt endpoints.
+///
+/// For isochronous/interrupt endpoints, this helps the host allocate
+/// bus bandwidth appropriately.
+class BytesPerInterval {
+  const BytesPerInterval(this.value)
+    : assert(
+        value >= 0 && value <= 65535,
+        'Bytes per interval must be 0-65535',
+      );
+
+  /// Number of bytes per interval (0-65535).
+  final int value;
+
+  /// No bytes per interval (not used).
+  static const BytesPerInterval none = .new(0);
+
+  /// Converts to wBytesPerInterval field value.
+  int toUint16() => value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BytesPerInterval && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => '$value bytes/interval';
+}
+
+/// Type-safe extended bytes per interval for SuperSpeedPlus (0-4294967295).
+///
+/// Used in SuperSpeedPlus isochronous endpoint companion descriptors to
+/// specify larger transfer sizes that exceed the 16-bit limit. This allows
+/// specifying up to 4 GB per service interval for very high bandwidth
+/// isochronous transfers.
+class ExtendedBytesPerInterval {
+  const ExtendedBytesPerInterval(this.value)
+    : assert(value >= 0, 'Bytes per interval must be non-negative');
+
+  /// Number of bytes per interval (0-4294967295).
+  final int value;
+
+  /// No bytes per interval (not used).
+  static const ExtendedBytesPerInterval none = .new(0);
+
+  /// Converts to dwBytesPerInterval field value.
+  int toUint32() => value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExtendedBytesPerInterval && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => '$value bytes/interval';
+}
+
+/// A USB Vendor ID and Product ID pair.
+///
+/// Official VIDs are assigned by the USB Implementers Forum (USB-IF).
+/// Use vendor `0x1234` for testing.
+final class Id {
+  const Id({required this.vendor, required this.product});
+
+  /// USB Vendor ID (VID).
+  final int vendor;
+
+  /// USB Product ID (PID).
+  final int product;
+}
+
+/// USB device or interface class code, grouping class, subclass, and protocol.
+///
+/// Most composite devices use [Class.interfaceSpecific], which defers class
+/// information to each interface descriptor.
+///
+/// ```dart
+/// final cls = Class.interfaceSpecific();
+/// final cls = Class.vendorSpecific(0x00, 0x00);
+/// ```
+final class Class {
+  const Class(this._code, this.subClass, this.protocol)
+    : assert(subClass >= 0 && subClass <= 0xFF),
+      assert(protocol >= 0 && protocol <= 0xFF);
+
+  /// Defers class information to each interface descriptor.
+  ///
+  /// Can only be used as a device class, not an interface class.
+  const Class.interfaceSpecific() : this(.none, 0, 0);
+
+  /// Creates a vendor-specific class (code `0xFF`) with the given [subClass] and [protocol].
+  const Class.vendorSpecific(int subClass, int protocol)
+    : this(.vendorSpecific, subClass, protocol);
+
+  /// USB class code.
+  final ClassType _code;
+
+  int get code => _code.value;
+
+  /// USB subclass code.
+  final int subClass;
+
+  /// USB protocol code.
+  final int protocol;
+}
+
+/// Handles USB bMaxPower values for gadget configurations.
+///
+/// bMaxPower specifies the maximum power consumption of the device from the
+/// USB bus.
+final class MaxPower {
+  /// Creates a MaxPower value from a raw USB bMaxPower value
+  const MaxPower(this.milliAmps) : assert(milliAmps >= 0 && milliAmps <= 510);
+
+  final int milliAmps;
+
+  int get value => milliAmps ~/ 2;
+
+  @override
+  String toString() => 'MaxPower(value=$value, mA=$milliAmps)';
+}
+
+/// Type-safe device subclass code.
+///
+/// Further refines the device class when used at the device descriptor level
+/// (bDeviceSubClass field). Interpretation depends on the device class.
+final class DeviceSubClass {
+  const DeviceSubClass(this.value)
+    : assert(value >= 0 && value <= 255, 'Device subclass must be 0-255');
+
+  /// The raw device subclass value (0-255).
+  final int value;
+
+  /// No subclass specified (0x00).
+  static const DeviceSubClass none = .new(0x00);
+
+  /// Common subclass (0x02) for miscellaneous devices.
+  ///
+  /// Used with DeviceClass.miscellaneous for multi-function
+  /// devices using Interface Association Descriptors.
+  static const DeviceSubClass common = .new(0x02);
+
+  @override
+  bool operator ==(Object other) =>
+      other is DeviceSubClass && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() =>
+      'DeviceSubClass(0x${value.toRadixString(16).padLeft(2, '0')})';
+}
+
+/// Type-safe device protocol code.
+///
+/// Specifies the protocol when used at the device descriptor level
+/// (bDeviceProtocol field). Interpretation depends on the device class
+/// and subclass.
+final class DeviceProtocol {
+  const DeviceProtocol(this.value)
+    : assert(value >= 0 && value <= 255, 'Device protocol must be 0-255');
+
+  /// The raw device protocol value (0-255).
+  final int value;
+
+  /// No protocol specified (0x00).
+  static const DeviceProtocol none = .new(0x00);
+
+  /// Interface Association Descriptor protocol (0x01).
+  ///
+  /// Used with DeviceClass.miscellaneous and DeviceSubClass.common
+  /// to indicate the device uses Interface Association Descriptors.
+  static const DeviceProtocol iad = .new(0x01);
+
+  @override
+  bool operator ==(Object other) =>
+      other is DeviceProtocol && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() =>
+      'DeviceProtocol(0x${value.toRadixString(16).padLeft(2, '0')})';
+}
+
+/// USB transfer direction.
+///
+/// Encoded in bit 7 of bEndpointAddress and bmRequestType.
+enum USBDirection {
+  /// Host to device (OUT transfer).
+  out(0x00),
+
+  /// Device to host (IN transfer).
+  in_(0x80);
+
+  const USBDirection(this.value);
+
+  /// Extracts direction from bEndpointAddress or bmRequestType.
+  factory USBDirection.fromByte(int byte) =>
+      (byte & mask) == in_.value ? in_ : out;
+
+  /// Raw value for bit 7.
+  final int value;
+
+  /// Direction bit mask (bit 7).
+  static const int mask = 0x80;
+
+  /// True if this is an IN direction.
+  bool get isIn => this == in_;
+
+  /// True if this is an OUT direction.
+  bool get isOut => this == out;
+}
+
+/// USB endpoint transfer types.
+///
+/// Encoded in bits 0-1 of bmAttributes.
+enum TransferType {
+  /// Control transfer (structured, reliable, bidirectional).
+  control(0x00),
+
+  /// Isochronous transfer (time-critical, guaranteed bandwidth, no retries).
+  isochronous(0x01),
+
+  /// Bulk transfer (large, reliable, best-effort bandwidth).
+  bulk(0x02),
+
+  /// Interrupt transfer (small, periodic, bounded latency).
+  interrupt(0x03);
+
+  const TransferType(this.value);
+
+  /// Raw value for bits 0-1 of bmAttributes.
+  final int value;
+}
+
+/// USB device class codes.
+///
+/// Identifies the functional category of a device or interface.
+/// These codes are standardized by the USB Implementers Forum (USB-IF)
+/// and allow operating systems to load appropriate drivers.
+///
+/// Each device or interface specifies a class, subclass, and protocol
+/// that together define its functionality.
+enum ClassType {
+  /// Class defined at interface level (bDeviceClass = 0x00).
+  ///
+  /// When used at device level, indicates that class information is
+  /// specified in interface descriptors rather than at the device level.
+  /// This is common for composite devices with multiple functions.
+  none(0x00),
+
+  /// Audio device class (0x01).
+  ///
+  /// Devices that handle audio streams: speakers, microphones, headsets,
+  /// MIDI interfaces, and audio mixers. Uses the Audio Device Class (ADC)
+  /// specification.
+  audio(0x01),
+
+  /// Communications device class (CDC, 0x02).
+  ///
+  /// Telecommunications and networking devices: modems, ISDN adapters,
+  /// USB-to-serial converters, network adapters (RNDIS, ECM, NCM).
+  /// Uses the Communications Device Class specification.
+  comm(0x02),
+
+  /// Human Interface Device class (HID, 0x03).
+  ///
+  /// Human input and output devices: keyboards, mice, game controllers,
+  /// touchscreens, barcode readers. Uses the HID specification with
+  /// report descriptors.
+  hid(0x03),
+
+  /// Physical Interface Device class (0x05).
+  ///
+  /// Devices that provide force feedback or other physical interactions,
+  /// such as force-feedback game controllers and haptic devices.
+  physical(0x05),
+
+  /// Still Imaging Device class (0x06).
+  ///
+  /// Digital cameras and scanners. Uses the Picture Transfer Protocol (PTP)
+  /// or other imaging protocols.
+  image(0x06),
+
+  /// Printer device class (0x07).
+  ///
+  /// Printers and print servers. Supports various printer languages and
+  /// bidirectional communication for status reporting.
+  printer(0x07),
+
+  /// Mass Storage Device class (0x08).
+  ///
+  /// Storage devices: USB flash drives, external hard drives, card readers,
+  /// optical drives. Typically uses SCSI commands over bulk-only transport.
+  massStorage(0x08),
+
+  /// Hub device class (0x09).
+  ///
+  /// USB hubs that provide additional USB ports. Includes both external
+  /// hubs and root hubs built into host controllers.
+  hub(0x09),
+
+  /// CDC-Data device class (0x0A).
+  ///
+  /// Data interfaces for CDC devices. Works in conjunction with a CDC
+  /// Communications interface to transfer data.
+  cdcData(0x0A),
+
+  /// Smart Card device class (0x0B).
+  ///
+  /// Smart card readers and Chip Card Interface Devices (CCID).
+  /// Used for authentication tokens and secure elements.
+  smartCard(0x0B),
+
+  /// Content Security device class (0x0D).
+  ///
+  /// Devices related to content protection and digital rights management.
+  contentSecurity(0x0D),
+
+  /// Video device class (0x0E).
+  ///
+  /// Video streaming devices: webcams, video capture cards, video
+  /// conferencing equipment. Uses the USB Video Class (UVC) specification.
+  video(0x0E),
+
+  /// Personal Healthcare device class (0x0F).
+  ///
+  /// Medical and fitness devices: blood pressure monitors, glucose meters,
+  /// pulse oximeters, thermometers. Uses IEEE 11073 protocols.
+  personalHealthcare(0x0F),
+
+  /// Audio/Video device class (0x10).
+  ///
+  /// Devices that combine audio and video functionality, such as
+  /// videoconferencing systems and multimedia streaming devices.
+  audioVideo(0x10),
+
+  /// Billboard device class (0x11).
+  ///
+  /// USB Type-C billboard devices that provide information about
+  /// alternate modes and connection state.
+  billboard(0x11),
+
+  /// USB Type-C Bridge device class (0x12).
+  ///
+  /// Devices that bridge USB Type-C functionality.
+  usbTypeCBridge(0x12),
+
+  /// Diagnostic device class (0xDC).
+  ///
+  /// Devices used for USB debugging and diagnostics.
+  diagnostic(0xDC),
+
+  /// Wireless Controller class (0xE0).
+  ///
+  /// Wireless adapters and controllers: Bluetooth adapters, Wi-Fi dongles,
+  /// wireless USB host controllers.
+  wirelessController(0xE0),
+
+  /// Miscellaneous device class (0xEF).
+  ///
+  /// Devices that don't fit into other standard classes but use
+  /// common protocols. Often used with Interface Association Descriptors
+  /// for multi-function devices.
+  miscellaneous(0xEF),
+
+  /// Application Specific device class (0xFE).
+  ///
+  /// Devices implementing application-specific protocols such as
+  /// Device Firmware Update (DFU) or IrDA Bridge.
+  applicationSpecific(0xFE),
+
+  /// Vendor-specific class (0xFF).
+  ///
+  /// Devices with vendor-defined functionality that doesn't fit into
+  /// standard USB classes. Requires vendor-specific drivers.
+  vendorSpecific(0xFF);
+
+  const ClassType(this.value);
+
+  /// Raw class code value.
+  final int value;
+}
+
+/// USB descriptor types.
+///
+/// These type codes identify different kinds of USB descriptors
+/// returned by GET_DESCRIPTOR requests.
+enum USBDescriptorType {
+  /// Device descriptor (0x01).
+  device(0x01),
+
+  /// Configuration descriptor (0x02).
+  config(0x02),
+
+  /// String descriptor (0x03).
+  string(0x03),
+
+  /// Interface descriptor (0x04).
+  interface(0x04),
+
+  /// Endpoint descriptor (0x05).
+  endpoint(0x05),
+
+  /// Device qualifier descriptor (0x06).
+  deviceQualifier(0x06),
+
+  /// Other speed configuration descriptor (0x07).
+  otherSpeedConfig(0x07),
+
+  /// Interface power descriptor (0x08).
+  interfacePower(0x08),
+
+  /// OTG descriptor (0x09).
+  otg(0x09),
+
+  /// Debug descriptor (0x0A).
+  debug(0x0A),
+
+  /// Interface association descriptor (0x0B).
+  interfaceAssociation(0x0B),
+
+  /// SuperSpeed endpoint companion descriptor (0x30).
+  ssEndpointComp(0x30),
+
+  /// SuperSpeedPlus isochronous endpoint companion descriptor (0x31).
+  sspIsocEndpointComp(0x31);
+
+  const USBDescriptorType(this.value);
+
+  /// The raw descriptor type value.
+  final int value;
+}
+
+/// USB request types (bits 5-6 of bmRequestType).
+enum USBRequestType {
+  /// Standard request (0x00).
+  standard(0x00),
+
+  /// Class-specific request (0x20).
+  class_(0x20),
+
+  /// Vendor-specific request (0x40).
+  vendor(0x40),
+
+  /// Reserved (0x60).
+  reserved(0x60);
+
+  const USBRequestType(this.value);
+
+  /// Extracts request type from bmRequestType byte.
+  factory USBRequestType.fromByte(int byte) {
+    final masked = byte & mask;
+    return switch (masked) {
+      0x00 => standard,
+      0x20 => class_,
+      0x40 => vendor,
+      0x60 => reserved,
+      _ => throw ArgumentError('Invalid USB request type: $masked'),
+    };
+  }
+
+  /// Raw value for bits 5-6 of bmRequestType.
+  final int value;
+
+  /// Request type mask (bits 5-6).
+  static const int mask = 0x60;
+}
+
+/// USB recipients (bits 0-4 of bmRequestType).
+enum USBRecipient {
+  /// Device recipient (0x00).
+  device(0x00),
+
+  /// Interface recipient (0x01).
+  interface(0x01),
+
+  /// Endpoint recipient (0x02).
+  endpoint(0x02),
+
+  /// Other recipient (0x03).
+  other(0x03);
+
+  const USBRecipient(this.value);
+
+  /// Extracts recipient from bmRequestType byte.
+  factory USBRecipient.fromByte(int byte) {
+    final masked = byte & mask;
+    return switch (masked) {
+      0x00 => device,
+      0x01 => interface,
+      0x02 => endpoint,
+      0x03 => other,
+      _ => throw ArgumentError('Invalid USB recipient: $masked'),
+    };
+  }
+
+  /// Raw value for bits 0-4 of bmRequestType.
+  final int value;
+
+  /// Recipient mask (bits 0-4).
+  static const int mask = 0x1F;
+}
+
+/// Standard USB requests.
+enum USBRequest {
+  /// GET_STATUS (0x00).
+  getStatus(0x00),
+
+  /// CLEAR_FEATURE (0x01).
+  clearFeature(0x01),
+
+  /// SET_FEATURE (0x03).
+  setFeature(0x03),
+
+  /// SET_ADDRESS (0x05).
+  setAddress(0x05),
+
+  /// GET_DESCRIPTOR (0x06).
+  getDescriptor(0x06),
+
+  /// SET_DESCRIPTOR (0x07).
+  setDescriptor(0x07),
+
+  /// GET_CONFIGURATION (0x08).
+  getConfiguration(0x08),
+
+  /// SET_CONFIGURATION (0x09).
+  setConfiguration(0x09),
+
+  /// GET_INTERFACE (0x0A).
+  getInterface(0x0A),
+
+  /// SET_INTERFACE (0x0B).
+  setInterface(0x0B),
+
+  /// SYNCH_FRAME (0x0C).
+  synchFrame(0x0C);
+
+  const USBRequest(this.value);
+
+  /// Creates a request from its raw value.
+  factory USBRequest.fromByte(int byte) => switch (byte) {
+    0x00 => .getStatus,
+    0x01 => .clearFeature,
+    0x03 => .setFeature,
+    0x05 => .setAddress,
+    0x06 => .getDescriptor,
+    0x07 => .setDescriptor,
+    0x08 => .getConfiguration,
+    0x09 => .setConfiguration,
+    0x0A => .getInterface,
+    0x0B => .setInterface,
+    0x0C => .synchFrame,
+    _ => throw ArgumentError('Invalid USB request: $byte'),
+  };
+
+  /// Raw request value.
+  final int value;
+}
+
+/// Standard USB feature selectors.
+enum USBFeature {
+  /// Endpoint halt feature (0x00).
+  endpointHalt(0x00),
+
+  /// Device remote wakeup feature (0x01).
+  deviceRemoteWakeup(0x01),
+
+  /// Test mode feature (0x02).
+  testMode(0x02),
+
+  /// Function suspend feature (0x00).
+  ///
+  /// Applied to interface recipients; shares the selector value 0x00
+  /// with [endpointHalt], which is applied to endpoint recipients.
+  /// The [fromByte] factory disambiguates by [USBRecipient]. See USB
+  /// 2.0 spec §9.4.1.
+  functionSuspend(0x00);
+
+  const USBFeature(this.value);
+
+  /// Creates a feature selector from its raw value and recipient.
+  /// Throws ArgumentError if the combination is invalid.
+  factory USBFeature.fromByte(int byte, USBRecipient recipient) =>
+      switch (recipient) {
+        .endpoint when byte == 0x00 => .endpointHalt,
+        .interface when byte == 0x00 => .functionSuspend,
+        .device => switch (byte) {
+          0x01 => .deviceRemoteWakeup,
+          0x02 => .testMode,
+          _ => throw ArgumentError(
+            'Invalid feature selector for device recipient: $byte',
+          ),
+        },
+        _ => throw ArgumentError(
+          'Invalid recipient for feature selector: $recipient',
+        ),
+      };
+
+  /// Raw feature value.
+  final int value;
+}
