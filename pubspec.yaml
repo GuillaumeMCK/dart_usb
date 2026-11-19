@@ -8,3 +8,4 @@ workspace:
   - packages/usb_models
   - packages/usb_host
   - packages/usb_gadget
+  - packages/usb_gadget/example

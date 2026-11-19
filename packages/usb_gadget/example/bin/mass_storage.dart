@@ -1,7 +1,8 @@
 // Exposes disk images as a USB drive. Run as root on a board with a USB
 // device controller:
 //
-//   dart example/mass_storage.dart [--udc NAME] IMAGE [IMAGE ...]
+//   dart build cli -t bin/mass_storage.dart -o build/mass_storage
+//   sudo build/mass_storage/bundle/bin/mass_storage [--udc NAME] IMAGE...
 import 'dart:io';
 
 import 'package:usb_gadget/usb_gadget.dart';
@@ -13,7 +14,7 @@ Future<void> main(List<String> args) async {
   };
   if (images.isEmpty || images.any((i) => i.startsWith('-'))) {
     stderr.writeln(
-      'Usage: dart mass_storage.dart [--udc NAME] IMAGE [IMAGE ...]',
+      'Usage: mass_storage [--udc NAME] IMAGE [IMAGE ...]',
     );
     exit(64);
   }
@@ -39,10 +40,13 @@ Future<void> main(List<String> args) async {
     final name? => (await udcs()).firstWhere((u) => u.name == name),
     null => await defaultUdc(),
   };
-  final registered = await gadget.bind(udc);
-  stdout.writeln(
-    'Serving ${images.join(', ')} on ${udc.name}. Ctrl+C to exit.',
-  );
-  await ProcessSignal.sigint.watch().first;
-  await registered.remove();
+  try {
+    await gadget.bind(udc);
+    stdout.writeln(
+      'Serving ${images.join(', ')} on ${udc.name}. Ctrl+C to exit.',
+    );
+    await ProcessSignal.sigint.watch().first;
+  } finally {
+    await gadget.remove();
+  }
 }

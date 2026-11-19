@@ -5,3 +5,6 @@ doc/api/
 .idea/
 .fvm/
 .DS_Store
+
+# CI kernel built by packages/usb_gadget/tool/ci/build-kernel.sh
+kernel-*.tar.zst

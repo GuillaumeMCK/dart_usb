@@ -30,7 +30,8 @@ assert(parsed.address == built.address);
 This is a [pub workspace](https://dart.dev/tools/pub/workspaces):
 
 ```sh
-dart pub get                          # resolves every package
+dart pub get                          # with Flutter installed
+dart pub get --no-example             # without: skips usb_host's Flutter example
 dart analyze
 (cd packages/usb_models && dart test) # pure Dart
 (cd packages/usb_host && dart test)       # read-only, against attached hardware
@@ -38,16 +39,11 @@ dart analyze
 
 `usb_host` and `usb_gadget` compile their Rust crates through build hooks, so
 a Rust toolchain ([rustup](https://rustup.rs)) is needed. `usb_gadget`'s
-end-to-end tests run on Linux with the virtual `dummy_hcd` controller, and
-use `usb_host` as the host:
+end-to-end tests need root and the virtual `dummy_hcd` controller; CI runs
+them in a VM, and the usb_gadget README shows how to do so locally.
 
-```sh
-sudo modprobe dummy_hcd libcomposite
-(cd packages/usb_gadget && sudo dart test test/gadget_test.dart)
-```
-
-The Flutter example in `packages/usb_host/example` resolves on its own
-(`flutter pub get`).
+The Flutter example in `packages/usb_host/example` needs Flutter; plain
+`dart pub get` at the root also resolves it, hence `--no-example` above.
 
 ## Licenses
 

@@ -1,0 +1,13 @@
+name: usb_gadget_example
+description: Examples for usb_gadget.
+publish_to: none
+
+environment:
+  sdk: ^3.14.0
+
+resolution: workspace
+
+dependencies:
+  usb_gadget: ^2.0.0
+  # The host side of ping/pong.
+  usb_host: ^0.1.0

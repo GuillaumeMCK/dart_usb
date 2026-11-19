@@ -1,0 +1,69 @@
+name: usb_gadget end-to-end
+
+# Registers gadgets on the virtual dummy_hcd controller, as root, inside a
+# virtme-ng VM, and talks to them with usb_host. Hosted runners have no
+# dummy_hcd, hence the VM; see packages/usb_gadget/tool/ci.
+
+on:
+  push:
+    paths:
+      - packages/usb_gadget/**
+      - packages/usb_host/**
+      - packages/usb_models/**
+      - .github/workflows/usb_gadget.yml
+  pull_request:
+  workflow_dispatch:
+
+env:
+  KERNEL_VERSION: "7.2.10"
+
+jobs:
+  dummy-hcd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: packages/usb_gadget
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install virtme-ng
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 zstd busybox-static
+          pip3 install --user virtme-ng
+
+      - name: Allow KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cache kernel
+        id: kernel
+        uses: actions/cache@v5
+        with:
+          path: packages/usb_gadget/tool/ci/kernel-${{ env.KERNEL_VERSION }}.tar.zst
+          key: kernel-${{ env.KERNEL_VERSION }}-${{ hashFiles('packages/usb_gadget/tool/ci/usb-gadget.config', 'packages/usb_gadget/tool/ci/build-kernel.sh') }}
+
+      - name: Build kernel
+        if: steps.kernel.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y --no-install-recommends build-essential flex bison libelf-dev libssl-dev bc
+          tool/ci/build-kernel.sh --kernel-version "$KERNEL_VERSION"
+
+      - name: Get dependencies
+        run: dart pub get --no-example
+
+      # Builds both Rust crates through the build hooks, outside the VM.
+      - name: Unit tests
+        run: dart test test/models_test.dart test/native_test.dart
+
+      - name: End-to-end tests in the VM
+        run: tool/ci/vm-run.sh dart test test/gadget_test.dart
+        timeout-minutes: 15

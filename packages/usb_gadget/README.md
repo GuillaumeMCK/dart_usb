@@ -28,6 +28,19 @@ sudo modprobe libcomposite
 sudo mount -t configfs none /sys/kernel/config  # if not already mounted
 ```
 
+### Running as root
+
+Build as yourself with [`dart build cli`](https://dart.dev/tools/dart-build)
+and run only the result as root. `sudo dart run` fails: build hooks only see
+a few variables, `PATH` and `HOME` among them
+([hooks](https://dart.dev/tools/hooks)), and sudo resets both, so the hook
+can't find your `rustup`.
+
+```sh
+dart build cli -t bin/my_gadget.dart -o build/my_gadget
+sudo build/my_gadget/bundle/bin/my_gadget
+```
+
 ## Kernel functions
 
 The kernel implements the function; you configure it, and subclass it to
@@ -134,7 +147,7 @@ class Echo extends CustomFunction {
 - **`HidFunctionFs`** is a ready-made HID custom function: it answers the
   HID class requests and calls `onGetReport`, `onSetReport`, `onSetIdle`
   and `onSetProtocol`. `interfaceProtocol` is `bInterfaceProtocol`
-  (1 keyboard, 2 mouse); `bootProtocol` is what the host selected. See [the gamepad example](example/gamepad.dart).
+  (1 keyboard, 2 mouse); `bootProtocol` is what the host selected. See [the gamepad example](example/bin/gamepad.dart).
 - **Registering again** after `remove()` starts the function afresh;
   registering a gadget that is already registered throws `StateError`.
 
@@ -142,18 +155,34 @@ class Echo extends CustomFunction {
 
 See [example/](example): a keyboard, a gamepad implemented as a custom
 function, a USB drive, and a bulk echo gadget with a `usb_host` host program.
+The examples are a package of their own; on the board:
+
+```sh
+cd example
+dart build cli -t bin/pong.dart -o build/pong
+sudo build/pong/bundle/bin/pong
+```
+
+Then, on the computer it's plugged into, `dart run bin/ping.dart`.
 
 ## Testing
 
 `test/models_test.dart` runs anywhere. `test/native_test.dart` loads the
 native library on any Linux machine. `test/gadget_test.dart` registers
-gadgets on the virtual `dummy_hcd` controller and talks to them with `usb_host`
-on the same machine:
+gadgets on the virtual `dummy_hcd` controller and talks to them with
+`usb_host`; it needs root and a kernel with `dummy_hcd`, which most
+distributions (Raspberry Pi OS included) don't ship. CI runs it as root in a
+[virtme-ng](https://github.com/arighi/virtme-ng) VM with its own kernel
+([workflow](../../.github/workflows/usb_gadget.yml)). To do the same on a
+Linux x86-64 machine:
 
 ```sh
-sudo modprobe dummy_hcd libcomposite
-sudo dart test test/gadget_test.dart
+tool/ci/build-kernel.sh                       # once
+dart test test/models_test.dart               # builds the native code
+tool/ci/vm-run.sh dart test test/gadget_test.dart
 ```
+
+On a board, test against a real host with the [examples](example).
 
 ## Regenerating the bindings
 

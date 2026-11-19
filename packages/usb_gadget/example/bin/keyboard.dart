@@ -89,8 +89,9 @@ Future<void> main() async {
   try {
     await gadget.bind();
     await gadget.udc?.awaitState(.configured);
-    // Some hosts miss the first reports right after configuration.
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    // Hosts drop key reports until their keyboard driver attaches, which
+    // comes after configuration: macOS needs over half a second.
+    await Future<void>.delayed(const Duration(seconds: 2));
     _helloWorld.forEach(keyboard.sendKey);
     stdout.writeln('Typed "hello world". Ctrl+C to exit.');
     await ProcessSignal.sigint.watch().first;
