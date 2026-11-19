@@ -544,12 +544,10 @@ final class MaxPacketSize {
        ),
        _extraBits = (transactionsPerMicroframe - 1) << 11;
 
-  /// SuperSpeed endpoint (512 or 1024 bytes).
+  /// SuperSpeed endpoint: 512 bytes for control, 1024 for bulk, and up to
+  /// 1024 for interrupt and isochronous (USB 3.2 §9.6.6).
   const MaxPacketSize.superSpeed(this.size)
-    : assert(
-        size == 512 || size == 1024,
-        'SuperSpeed must be 512 or 1024 bytes',
-      ),
+    : assert(size >= 0 && size <= 1024, 'SuperSpeed must be 0-1024 bytes'),
       _extraBits = 0;
 
   /// Parses a `wMaxPacketSize` field, keeping the high-bandwidth
@@ -581,10 +579,10 @@ final class MaxPacketSize {
         // must be requested explicitly.
         transactionsPerMicroframe: 1,
       ),
-      // SuperSpeed (USB 3.x): control and bulk are fixed at 512 per spec;
-      // interrupt and isochronous may use 1024.
+      // SuperSpeed (USB 3.x): control is fixed at 512 and bulk at 1024;
+      // interrupt and isochronous may use up to 1024.
       (.superSpeed || .superSpeedPlus, .control) => const .superSpeed(512),
-      (.superSpeed || .superSpeedPlus, .bulk) => const .superSpeed(512),
+      (.superSpeed || .superSpeedPlus, .bulk) => const .superSpeed(1024),
       (.superSpeed || .superSpeedPlus, _) => const .superSpeed(1024),
       _ => throw ArgumentError('Unsupported speed/transfer type combination'),
     };

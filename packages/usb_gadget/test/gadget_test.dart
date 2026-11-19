@@ -541,8 +541,16 @@ Future<List<int>> _roundTrip(
   final in_ = interface.endpointIn(
     alt.endpoints.firstWhere((e) => e.direction == .in_).address.value,
   );
-  await out.transfer(data: payload);
-  return in_.transfer(length: 16_384, timeout: const Duration(seconds: 2));
+  try {
+    await out.transfer(data: payload);
+    return await in_.transfer(
+      length: 16_384,
+      timeout: const Duration(seconds: 2),
+    );
+  } finally {
+    out.dispose();
+    in_.dispose();
+  }
 }
 
 /// The test function: echoes bulk data, and answers vendor requests by

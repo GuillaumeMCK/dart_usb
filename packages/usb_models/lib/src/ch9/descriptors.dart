@@ -745,7 +745,7 @@ sealed class const EndpointConfig({this.maxPacketSize}) {
 /// Automatically selects packet size by speed:
 /// - Full-Speed: 64 bytes
 /// - High-Speed: 512 bytes
-/// - SuperSpeed / SuperSpeedPlus: 512 bytes (USB 3.x spec §9.6.6)
+/// - SuperSpeed / SuperSpeedPlus: 1024 bytes (USB 3.x spec §9.6.6)
 ///
 /// Polling interval is irrelevant for bulk endpoints (always zero).
 final class const BulkEndpointConfig({super.maxPacketSize})
@@ -760,7 +760,7 @@ final class const BulkEndpointConfig({super.maxPacketSize})
   MaxPacketSize getMaxPacketSize(Speed speed) => switch (speed) {
     .fullSpeed => .fullSpeedBulk(maxPacketSize ?? 64),
     .highSpeed => const .highSpeedBulk(),
-    _ => .superSpeed(maxPacketSize ?? 512),
+    _ => .superSpeed(maxPacketSize ?? 1024),
   };
 
   @override
