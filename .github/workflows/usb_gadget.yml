@@ -44,9 +44,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Cache kernel
+      # Restore and save are separate so the kernel is cached as soon as it
+      # is built, even when the tests fail later in the job.
+      - name: Restore kernel
         id: kernel
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: packages/usb_gadget/tool/ci/kernel-${{ env.KERNEL_VERSION }}.tar.zst
           key: kernel-${{ env.KERNEL_VERSION }}-${{ hashFiles('packages/usb_gadget/tool/ci/usb-gadget.config', 'packages/usb_gadget/tool/ci/build-kernel.sh') }}
@@ -56,6 +58,13 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends build-essential flex bison libelf-dev libssl-dev bc
           tool/ci/build-kernel.sh --kernel-version "$KERNEL_VERSION"
+
+      - name: Save kernel
+        if: steps.kernel.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: packages/usb_gadget/tool/ci/kernel-${{ env.KERNEL_VERSION }}.tar.zst
+          key: ${{ steps.kernel.outputs.cache-primary-key }}
 
       - name: Get dependencies
         run: dart pub get --no-example
